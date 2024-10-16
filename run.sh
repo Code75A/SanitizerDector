@@ -39,6 +39,7 @@ testOneProgram() {
     genCompileCommand $programName > $MutantHome/compile_commands.json
     res=`timeout 10 $SSEQ $programName 2>1`
     exit_status=$?
+    # if sseq failed, we skip this file
     if [ $exit_status -eq 124 ]; then
         echo "sseq command timeout" >> $OUTPUTFILE
         return
@@ -46,6 +47,16 @@ testOneProgram() {
 
     NewProgName=$( basename $programName .c )
     NewProgName=$NewProgName"_test.c"
+
+    # if adding array is failed, we skip this file
+    if grep -q "=SaniTestArr0" "$NewProgName"; then
+        echo "SaniTestArr0 access found in $NewProgName"
+    else
+        echo "SaniTestArr0 access not found in $NewProgName"
+        echo "SaniTestArr0 access not found in $NewProgName" >> $OUTPUTFILE
+        return
+    fi
+
     cd $MutantHome
     echo $CC -g -O0 -Wno-everything -I$CSMITH_PATH -fsanitize=address $NewProgName
     $CC -g -O0 -Wno-everything -I$CSMITH_PATH -fsanitize=address $NewProgName &> /dev/null
