@@ -136,13 +136,13 @@ namespace sseq
         //std::cout<<"Class:"<<lhs->getStmtClassName()<<"--"<<rhs->getStmtClassName()<<std::endl;
 
 
-        if(op == clang::BinaryOperator::Opcode::BO_Div)
+        if(op == clang::BinaryOperator::Opcode::BO_Div || op == clang::BinaryOperator::Opcode::BO_Rem)
         {
  //         std::cout<<"-----"<<Tool::get_stmt_string(rhs)<<"-----"<<std::endl;
             generateArray(count++,Tool::get_stmt_string(rhs),insertStr);
         }
 
-        if(Tool::get_stmt_string(lhs).find('/')!=-1){
+        if(Tool::get_stmt_string(lhs).find('/')!=-1 || Tool::get_stmt_string(lhs).find('%')!=-1){
             //std::cout<<"check "<<Tool::get_stmt_string(lhs)<<std::endl;
 
             const clang::BinaryOperator *bopl=llvm::dyn_cast<clang::BinaryOperator>(lhs);
@@ -176,7 +176,7 @@ namespace sseq
                 judgeDiv(bopl,insertStr,count);
         }
 
-        if(Tool::get_stmt_string(rhs).find('/')!=-1){
+        if(Tool::get_stmt_string(rhs).find('/')!=-1 || Tool::get_stmt_string(rhs).find('%')!=-1){
             //std::cout<<"check "<<Tool::get_stmt_string(rhs)<<std::endl;
 
             const clang::BinaryOperator *bopr=llvm::dyn_cast<clang::BinaryOperator>(rhs);
