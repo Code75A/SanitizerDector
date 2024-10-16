@@ -29,7 +29,7 @@ add_executable(sseq ${srcs})
 llvm_map_components_to_libnames(llvm_libs support core irreader)
 
 # Link against LLVM libraries
-target_link_libraries(sseq ${llvm_libs} clangAST clangASTMatchers clangBasic clangFrontend clangSerialization clangTooling)
+target_link_libraries(sseq LLVM clangAST clangASTMatchers clangBasic clangFrontend clangSerialization clangTooling)
 
 target_compile_features(sseq PRIVATE cxx_range_for cxx_auto_type)
 set_target_properties(sseq PROPERTIES COMPILE_FLAGS "-fno-rtti")

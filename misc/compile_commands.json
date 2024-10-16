@@ -1,0 +1,17 @@
+[
+    {
+        "arguments": [
+            "clang",
+            "-c",
+            "-g",
+            "-O0",
+            "-Wall",
+            "-I${CSMITH_PATH}",
+            "${TestFile}",
+            "-o",
+            "test.o.bc",
+        ],
+        "directory": "${MutantHome}",
+        "file": "${TestFile}"
+    },
+]
