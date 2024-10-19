@@ -53,6 +53,7 @@ testOneProgram() {
     exit_status=$?
     # if sseq failed, we skip this file
     if [ $exit_status -eq 124 ]; then
+        echo "sseq command timeout for $programName"
         echo "sseq command timeout for $programName" >> $OUTPUTFILE
         return
     fi
@@ -110,7 +111,7 @@ testing() {
     res=`find $MutantHome -name "*.c"`
     totalNum=`echo "$res" | wc -l`
     number=1
-    while read myline
+    while read filename
     do
         testOneProgram $filename
         ProgressBar ${number} ${totalNum}
@@ -119,7 +120,7 @@ testing() {
 }
 
 testing
-#testOneProgram /bigdata/fff000/UBGen/mutants/mutated_0_tmpi8sgpa2c.c
+#testOneProgram /bigdata/fff000/UBGen/mutants/mutated_1_tmpnutrj4np.c
 
 
 
