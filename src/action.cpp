@@ -1,4 +1,3 @@
-
 #include "action.h"
 namespace sseq
 {
@@ -120,7 +119,7 @@ namespace sseq
         return Arr+Cat;
     }
 
-    void judgeDiv(const clang::BinaryOperator *bop,std::string* insertStr,int &count){
+    void judgeDiv(const clang::BinaryOperator *bop,std::string* insertStr,int &count,clang::SourceManager& SM,const int c){
         if(bop == nullptr)
         {
             std::cout<<"warnning:encounter nullptr,maybe not a binaryoperator\n";
@@ -136,15 +135,19 @@ namespace sseq
         //std::cout<<"Class:"<<lhs->getStmtClassName()<<"--"<<rhs->getStmtClassName()<<std::endl;
 
 
-        if(op == clang::BinaryOperator::Opcode::BO_Div || op == clang::BinaryOperator::Opcode::BO_Rem)
+        if((op == clang::BinaryOperator::Opcode::BO_Div || op == clang::BinaryOperator::Opcode::BO_Rem) && 
+        (SM.getSpellingColumnNumber(rhs->getEndLoc())>c && SM.getSpellingColumnNumber(rhs->getBeginLoc())<c ))
         {
- //         std::cout<<"-----"<<Tool::get_stmt_string(rhs)<<"-----"<<std::endl;
+            std::cout<<"check"<<SM.getSpellingColumnNumber(rhs->getBeginLoc())<<std::endl;
+            std::cout<<"check"<<SM.getSpellingColumnNumber(rhs->getEndLoc())<<std::endl;
             generateArray(count++,Tool::get_stmt_string(rhs),insertStr);
         }
+        //std::cout<<"check"<<SM.getSpellingColumnNumber(lhs->getEndLoc())<<"  ";
+        
 
-        if(Tool::get_stmt_string(lhs).find('/')!=-1 || Tool::get_stmt_string(lhs).find('%')!=-1){
+        if(Tool::get_stmt_string(lhs).find('/')!=-1 || Tool::get_stmt_string(lhs).find('%')!=-1 && SM.getSpellingColumnNumber(lhs->getEndLoc()) >= c){
             //std::cout<<"check "<<Tool::get_stmt_string(lhs)<<std::endl;
-
+            
             const clang::BinaryOperator *bopl=llvm::dyn_cast<clang::BinaryOperator>(lhs);
             while(!bopl)
             {
@@ -173,10 +176,10 @@ namespace sseq
                 bopl=llvm::dyn_cast<clang::BinaryOperator>(lhs);
             }
             //std::cout<<"SUCC:"<<Tool::get_stmt_string(lhs)<<std::endl;
-                judgeDiv(bopl,insertStr,count);
+                judgeDiv(bopl,insertStr,count,SM,c);
         }
 
-        if(Tool::get_stmt_string(rhs).find('/')!=-1 || Tool::get_stmt_string(rhs).find('%')!=-1){
+        if(Tool::get_stmt_string(rhs).find('/')!=-1 || Tool::get_stmt_string(rhs).find('%')!=-1 && SM.getSpellingColumnNumber(rhs->getBeginLoc()) <= c){
             //std::cout<<"check "<<Tool::get_stmt_string(rhs)<<std::endl;
 
             const clang::BinaryOperator *bopr=llvm::dyn_cast<clang::BinaryOperator>(rhs);
@@ -204,10 +207,36 @@ namespace sseq
                 bopr=llvm::dyn_cast<clang::BinaryOperator>(rhs);
             }
             //std::cout<<"SUCC:"<<Tool::get_stmt_string(rhs)<<std::endl;
-                judgeDiv(bopr,insertStr,count);
+                judgeDiv(bopr,insertStr,count,SM,c);
             
         }
         return ;
+    }
+
+    void find_UB(int &l,int &c,const std::string& fname){
+        
+        std::ifstream file(fname);
+        if(!file){
+            std::cout<<"file not exists"<<std::endl;
+            return ;
+        }
+
+        l=0;
+        std::string cur;
+
+        while(std::getline(file,cur)){
+            l++;
+            if(cur.find("/*UBFUZZ*/") != -1){
+                c=cur.find("/*UBFUZZ*/");
+                std::cout<<"line:"<<l<<" column:"<<c<<std::endl;
+                return ;
+            }
+            
+        }
+
+        l=-1;
+        return;
+
     }
 
     bool SeqASTVisitor::VisitFunctionDecl(clang::FunctionDecl *func_decl){
@@ -232,8 +261,24 @@ namespace sseq
                 filePath = filePath.substr(idx + 1);
             }
         }
+
+        int UBFUZZ_line=-1;
+        int UBFUZZ_column=-1;
+        static bool fir=false;
+        find_UB(UBFUZZ_line,UBFUZZ_column,filePath);
+
+        if(UBFUZZ_line==-1){
+            std::cout<<"Cant find a UBFUZZ sign"<<std::endl;
+        }
+        else{
+            std::cout<<"UBFUZZ in line"<<UBFUZZ_line<<std::endl;
+        }
+
         std::string func_name = func_decl->getNameAsString();
         std::cout<<"\n| Function [" << func_decl->getNameAsString() << "] defined in: " << filePath << "\n";
+
+        
+
         if (func_decl == func_decl->getDefinition())
         {
             clang::Stmt *body_stmt = func_decl->getBody();
@@ -247,23 +292,120 @@ namespace sseq
                 
                 // 方法1： 在此处判断语句类型 如果是有子语句的语句（如for\if\switch\while)则遍历其子语句查找除法运算和模运算 
                 // 可以通过get_stmt_string 可以输出该语句的内容，通过判断是否存在"/"或"%"字符来进行一次筛选
+                if(SM.getSpellingLineNumber(stmt->getEndLoc()) >= UBFUZZ_line && !fir){
 
-                if(const clang::BinaryOperator *bop = llvm::dyn_cast<clang::BinaryOperator>(stmt)){// 这样是判断是不是二元运算
-                    
-                    clang::BinaryOperator::Opcode op = bop->getOpcode();//运算符，如op==clang::BinaryOperator::Opcode::BO_Comma 可以判断运算符是不是逗号
-                    
-                    clang::Expr *lhs = bop->getLHS(); clang::Expr *rhs = bop->getRHS();
+                    fir=true;
 
-                    std::string* insertStr=new std::string;
-                    *insertStr="";
-                    
-                    if(Tool::get_stmt_string(stmt).find('/')!=-1){
-                    //   std::cout<<"check "<<Tool::get_stmt_string(stmt)<<std::endl;
-                        judgeDiv(bop,insertStr,count);
-                    }
-                    _rewriter.InsertTextBefore(stmt->getBeginLoc(),*insertStr);
-                    
-                    /*
+                    std::cout<<Tool::get_stmt_string(stmt)<<std::endl;
+                    std::string type=stmt->getStmtClassName();
+                    std::cout<<"type:"<<type<<std::endl;
+
+                        while(type == "ForStmt" || type == "IfStmt")
+                        {
+                            fir=false;
+                            if(type=="ForStmt"){
+                                clang::ForStmt *FS = llvm::dyn_cast<clang::ForStmt>(stmt);
+                                clang::Stmt *sbody=FS->getBody();
+                                //std::cout<<sbody->getStmtClassName()<<std::endl;
+                                    for (auto &s_stmt : sbody->children() )
+                                    {
+                                        // std::cout<<1;
+                                        // std::cout<<Tool::get_stmt_string(s_stmt);
+                                        // std::cout<<"STMT:"<<SM.getSpellingLineNumber(s_stmt->getEndLoc())<<std::endl;
+                                        if(SM.getSpellingLineNumber(s_stmt->getEndLoc()) >= UBFUZZ_line)
+                                        {
+                                            fir=true;
+                                            stmt=s_stmt;
+
+                                            type=stmt->getStmtClassName();
+                                            std::cout<<"type:"<<type<<std::endl;
+                                            break;
+                                        }
+                                    }
+                            }
+                            else if(type == "IfStmt"){
+                                clang::IfStmt *IS = llvm::dyn_cast<clang::IfStmt>(stmt);
+                                clang::Stmt *ibody=IS->getThen();
+
+                                for (auto &s_stmt : ibody->children() )
+                                    {
+                                        // std::cout<<1;
+                                        // std::cout<<Tool::get_stmt_string(s_stmt);
+                                         std::cout<<"STMT:"<<SM.getSpellingLineNumber(s_stmt->getEndLoc())<<std::endl;
+                                        if(SM.getSpellingLineNumber(s_stmt->getEndLoc()) >= UBFUZZ_line)
+                                        {
+                                            fir=true;
+                                            stmt=s_stmt;
+
+                                            type=stmt->getStmtClassName();
+                                            std::cout<<"type:"<<type<<std::endl;
+                                            break;
+                                        }
+                                    }
+
+                                ibody = IS->getElse();
+                                if(ibody)
+                                    for (auto &s_stmt : ibody->children() )
+                                        {
+                                            // std::cout<<1;
+                                            // std::cout<<Tool::get_stmt_string(s_stmt);
+                                            std::cout<<"STMT:"<<SM.getSpellingLineNumber(s_stmt->getEndLoc())<<std::endl;
+                                            if(SM.getSpellingLineNumber(s_stmt->getEndLoc()) >= UBFUZZ_line)
+                                            {
+                                                fir=true;
+                                                stmt=s_stmt;
+
+                                                type=stmt->getStmtClassName();
+                                                std::cout<<"type:"<<type<<std::endl;
+                                                break;
+                                            }
+                                        }
+                            }
+
+                            std::cout<<Tool::get_stmt_string(stmt)<<std::endl;
+                        }
+
+                        if(const clang::BinaryOperator *bop = llvm::dyn_cast<clang::BinaryOperator>(stmt)){// 这样是判断是不是二元运算
+                        
+                        clang::BinaryOperator::Opcode op = bop->getOpcode();//运算符，如op==clang::BinaryOperator::Opcode::BO_Comma 可以判断运算符是不是逗号
+                        
+                        clang::Expr *lhs = bop->getLHS(); clang::Expr *rhs = bop->getRHS();
+
+                        std::string* insertStr=new std::string;
+                        *insertStr="";
+                        
+                        if(Tool::get_stmt_string(stmt).find('/')!=-1){
+                            
+                            judgeDiv(bop,insertStr,count,SM,UBFUZZ_column);
+                        }
+                        _rewriter.InsertTextBefore(stmt->getBeginLoc(),*insertStr);
+                        }
+                        
+
+                            
+                    //    if(lhs==nullptr || rhs==nullptr) return false;//防止空指针
+                    //   std::string lhs_class = lhs->getStmtClassName(),rhs_class = rhs->getStmtClassName();//需要考虑运算符左右子语句可能也是二元运算。所以可能需要设计递归函数
+                        
+                }
+
+                
+
+                
+               
+                
+               
+               
+            }
+            _rewriter.InsertTextBefore(func_decl->getBeginLoc(),initSani(count));
+        }
+
+        
+        return true;
+    }
+
+};
+
+/*
                     if(op==clang::BinaryOperator::Opcode::BO_Assign)
                     {
                         clang::Expr *lhs = bop->getLHS(); clang::Expr *rhs = bop->getRHS();//获取右边的
@@ -284,25 +426,11 @@ namespace sseq
                     }
 
                     */
-                        
-                //    if(lhs==nullptr || rhs==nullptr) return false;//防止空指针
-                //   std::string lhs_class = lhs->getStmtClassName(),rhs_class = rhs->getStmtClassName();//需要考虑运算符左右子语句可能也是二元运算。所以可能需要设计递归函数
-                }
-               
-                
-               //方法2： 可以尝试写一个VisitBinaryOperator，再看看能不能通过这个节点找节点获取到对应的函数节点
+
+
+//方法2： 可以尝试写一个VisitBinaryOperator，再看看能不能通过这个节点找节点获取到对应的函数节点
 
                //一些API：get_stmt_string输出语句内容，
                //获取SourceLocation对应的行列：  int line= SM.getPresumedLineNumber(Loc), col = SM.getPresumedColumnNumber(Loc); 
                // 在loc之后插入str： _rewriter.InsertTextAfter(loc,str);
                // 遍历子语句直接auto， IF语句获取为true的部分是ifstmt->getThen()， 其他语句具体查询clang的文档。if while这些语句还要考虑条件，也可以查询文档得知如何获取。
-               
-            }
-            _rewriter.InsertTextBefore(func_decl->getBeginLoc(),initSani(count));
-        }
-
-        
-        return true;
-    }
-
-};
