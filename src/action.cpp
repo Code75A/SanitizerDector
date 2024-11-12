@@ -144,14 +144,15 @@ namespace sseq
         }
         //std::cout<<"check"<<SM.getSpellingColumnNumber(lhs->getEndLoc())<<"  ";
         
-
-        if(Tool::get_stmt_string(lhs).find('/')!=-1 || Tool::get_stmt_string(lhs).find('%')!=-1 && SM.getSpellingColumnNumber(lhs->getEndLoc()) >= c){
-            //std::cout<<"check "<<Tool::get_stmt_string(lhs)<<std::endl;
+        std::cout<<"check lhs:"<<Tool::get_stmt_string(lhs)<<std::endl;
+        if((Tool::get_stmt_string(lhs).find('/')!=-1 || Tool::get_stmt_string(lhs).find('%')!=-1) && SM.getSpellingColumnNumber(lhs->getEndLoc()) >= c){
+            std::cout<<"check lhs:"<<Tool::get_stmt_string(lhs)<<std::endl;
             
             const clang::BinaryOperator *bopl=llvm::dyn_cast<clang::BinaryOperator>(lhs);
             while(!bopl)
             {
                 std::string type=lhs->getStmtClassName();
+                std::cout<<"lhs type:"<<type<<std::endl;
                 if(type=="ParenExpr"){
                     clang::ParenExpr *plhs = llvm::dyn_cast<clang::ParenExpr>(lhs);
                     lhs=plhs->getSubExpr();
@@ -171,6 +172,17 @@ namespace sseq
                     clang::CStyleCastExpr *plhs = llvm::dyn_cast<clang::CStyleCastExpr>(lhs);
                     lhs=plhs->getSubExpr();
                 }
+                else if(type=="CallExpr"){
+                    for (auto &exp : lhs->children() )
+                        {
+                            if(SM.getSpellingColumnNumber(exp->getEndLoc()) >= c)
+                            {
+                                lhs=llvm::dyn_cast<clang::Expr>(exp);
+                                std::cout<<Tool::get_stmt_string(lhs)<<std::endl;
+                                break;
+                           }
+                        }
+                }
 
 
                 bopl=llvm::dyn_cast<clang::BinaryOperator>(lhs);
@@ -179,13 +191,15 @@ namespace sseq
                 judgeDiv(bopl,insertStr,count,SM,c);
         }
 
-        if(Tool::get_stmt_string(rhs).find('/')!=-1 || Tool::get_stmt_string(rhs).find('%')!=-1 && SM.getSpellingColumnNumber(rhs->getBeginLoc()) <= c){
-            //std::cout<<"check "<<Tool::get_stmt_string(rhs)<<std::endl;
+        std::cout<<"check rhs:"<<Tool::get_stmt_string(rhs)<<std::endl;
+        if((Tool::get_stmt_string(rhs).find('/')!=-1 || Tool::get_stmt_string(rhs).find('%')!=-1) && SM.getSpellingColumnNumber(rhs->getBeginLoc()) <= c){
+            std::cout<<"check rhs:"<<Tool::get_stmt_string(rhs)<<std::endl;
 
             const clang::BinaryOperator *bopr=llvm::dyn_cast<clang::BinaryOperator>(rhs);
             while(!bopr)
             {
                 std::string type=rhs->getStmtClassName();
+                std::cout<<"rhs type:"<<type<<std::endl;
                 if(type=="ParenExpr"){
                     clang::ParenExpr *prhs = llvm::dyn_cast<clang::ParenExpr>(rhs);
                     rhs=prhs->getSubExpr();
@@ -201,6 +215,17 @@ namespace sseq
                 else if(type=="CStyleCastExpr"){
                     clang::CStyleCastExpr *prhs = llvm::dyn_cast<clang::CStyleCastExpr>(rhs);
                     rhs=prhs->getSubExpr();
+                }
+                else if(type=="CallExpr"){
+                    for (auto &exp : rhs->children() )
+                        {
+                            if(SM.getSpellingColumnNumber(exp->getEndLoc()) >= c)
+                            {
+                                rhs=llvm::dyn_cast<clang::Expr>(exp);
+                                std::cout<<Tool::get_stmt_string(rhs)<<std::endl;
+                                break;
+                           }
+                        }
                 }
 
 
@@ -246,7 +271,7 @@ namespace sseq
             return true;
             
             
-        func_decl->dump();
+    //    func_decl->dump();
         
         
         clang::SourceManager &SM = _ctx->getSourceManager();
@@ -325,30 +350,26 @@ namespace sseq
                             }
                             else if(type == "IfStmt"){
                                 clang::IfStmt *IS = llvm::dyn_cast<clang::IfStmt>(stmt);
-                                clang::Stmt *ibody=IS->getThen();
+                                bool found=false;
 
-                                for (auto &s_stmt : ibody->children() )
-                                    {
-                                        // std::cout<<1;
-                                        // std::cout<<Tool::get_stmt_string(s_stmt);
-                                         std::cout<<"STMT:"<<SM.getSpellingLineNumber(s_stmt->getEndLoc())<<std::endl;
-                                        if(SM.getSpellingLineNumber(s_stmt->getEndLoc()) >= UBFUZZ_line)
-                                        {
-                                            fir=true;
-                                            stmt=s_stmt;
+                                clang::Stmt *ibody=IS->getCond();
+                                for (auto &s_stmt : ibody->children() ){
+                                    std::cout<<"STMT:"<<SM.getSpellingLineNumber(s_stmt->getEndLoc())<<std::endl;
+                                            if(SM.getSpellingLineNumber(s_stmt->getEndLoc()) >= UBFUZZ_line)
+                                            {
+                                                fir=true;
+                                                stmt=s_stmt;
 
-                                            type=stmt->getStmtClassName();
-                                            std::cout<<"type:"<<type<<std::endl;
-                                            break;
-                                        }
-                                    }
+                                                type=stmt->getStmtClassName();
+                                                std::cout<<"type:"<<type<<std::endl;
+                                                found=true;
+                                                break;
+                                            }
+                                }
 
-                                ibody = IS->getElse();
-                                if(ibody)
-                                    for (auto &s_stmt : ibody->children() )
-                                        {
-                                            // std::cout<<1;
-                                            // std::cout<<Tool::get_stmt_string(s_stmt);
+                                if(!found){
+                                        ibody=IS->getThen();
+                                    for (auto &s_stmt : ibody->children() ){
                                             std::cout<<"STMT:"<<SM.getSpellingLineNumber(s_stmt->getEndLoc())<<std::endl;
                                             if(SM.getSpellingLineNumber(s_stmt->getEndLoc()) >= UBFUZZ_line)
                                             {
@@ -357,9 +378,31 @@ namespace sseq
 
                                                 type=stmt->getStmtClassName();
                                                 std::cout<<"type:"<<type<<std::endl;
+                                                found=true;
                                                 break;
                                             }
                                         }
+                                }
+                                
+                                if(!found){
+                                        ibody = IS->getElse();
+                                    if(ibody)
+                                        for (auto &s_stmt : ibody->children() ){
+                                                // std::cout<<1;
+                                                // std::cout<<Tool::get_stmt_string(s_stmt);
+                                                std::cout<<"STMT:"<<SM.getSpellingLineNumber(s_stmt->getEndLoc())<<std::endl;
+                                                if(SM.getSpellingLineNumber(s_stmt->getEndLoc()) >= UBFUZZ_line){
+                                                    fir=true;
+                                                    stmt=s_stmt;
+
+                                                    type=stmt->getStmtClassName();
+                                                    std::cout<<"type:"<<type<<std::endl;
+                                                    break;
+                                                }
+                                            }
+                                }
+
+                                
                             }
 
                             std::cout<<Tool::get_stmt_string(stmt)<<std::endl;
@@ -374,26 +417,16 @@ namespace sseq
                         std::string* insertStr=new std::string;
                         *insertStr="";
                         
-                        if(Tool::get_stmt_string(stmt).find('/')!=-1){
-                            
+                        std::string stmt_string=Tool::get_stmt_string(stmt);
+                        if(stmt_string.find('/')!=-1 || stmt_string.find('%')!=-1){
                             judgeDiv(bop,insertStr,count,SM,UBFUZZ_column);
                         }
                         _rewriter.InsertTextBefore(stmt->getBeginLoc(),*insertStr);
                         }
-                        
-
-                            
                     //    if(lhs==nullptr || rhs==nullptr) return false;//防止空指针
                     //   std::string lhs_class = lhs->getStmtClassName(),rhs_class = rhs->getStmtClassName();//需要考虑运算符左右子语句可能也是二元运算。所以可能需要设计递归函数
                         
                 }
-
-                
-
-                
-               
-                
-               
                
             }
             _rewriter.InsertTextBefore(func_decl->getBeginLoc(),initSani(count));
