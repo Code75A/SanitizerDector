@@ -4,7 +4,7 @@ source $BASEDIR/config.sh --source-only
 source $BASEDIR/testing.sh --source-only
 
 #programName=$1
-programName=reduced.c
+programName=reduce.c
 testOneProgram $programName
 retval=$?
 if [ "$retval" == 0  ]

@@ -5,7 +5,8 @@ source $BASEDIR/config.sh --source-only
 
 genCompileCommand() {
     TestFile=$1
-    sed -e "s|\${MutantHome}|$MutantHome|g" -e "s|\${CSMITH_PATH}|$CSMITH_PATH|g" -e "s|\${TestFile}|$TestFile|g" $SDHOME/misc/compile_commands.json
+    ProgramDir=$2
+    sed -e "s|\${MutantHome}|$programDir|g" -e "s|\${CSMITH_PATH}|$CSMITH_PATH|g" -e "s|\${TestFile}|$TestFile|g" $SDHOME/misc/compile_commands.json
 }
 
 runCommandCheckString() {
@@ -44,7 +45,9 @@ runCommandCheckString() {
 
 testOneProgram() {
     programName=$1
-    cd $MutantHome
+    programName=`readlink -f $programName`
+    programDir=`dirname $programName`
+    cd $programDir
     echo $CC -g -O0 -Wno-everything -I$CSMITH_PATH -fsanitize=undefined $programName
     $CC -g -O0 -Wno-everything -I$CSMITH_PATH -fsanitize=undefined $programName &> /dev/null
     sleep 0.5
@@ -55,8 +58,10 @@ testOneProgram() {
     echo "UBS finished"
 
     #run sseq
-    genCompileCommand $programName > $MutantHome/compile_commands.json
+    echo "genCompileCommand $programName $programDir > $programDir/compile_commands.json"
+    genCompileCommand $programName $programDir > $programDir/compile_commands.json
     res=`timeout 20 $SSEQ $programName 2>1`
+    echo "running timeout 20 $SSEQ $programName 2>1"
     exit_status=$?
     # if sseq failed, we skip this file
     if [ $exit_status -eq 124 ]; then
@@ -80,7 +85,7 @@ testOneProgram() {
 
     fi
 
-    cd $MutantHome
+    cd $programDir
     echo $CC -g -O0 -Wno-everything -I$CSMITH_PATH -fsanitize=address $NewProgName
     $CC -g -O0 -Wno-everything -I$CSMITH_PATH -fsanitize=address $NewProgName &> /dev/null
     sleep 0.5
