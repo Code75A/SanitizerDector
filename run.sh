@@ -1,10 +1,10 @@
 #!/usr/bin/bash
 
-CC=/bigdata/fff000/UBGen/llvm_under_tested/LLVM-19.1.0-Linux-X64/bin/clang-19
-MutantHome=/bigdata/fff000/UBGen/mutants
-SDHOME=/bigdata/fff000/UBGen/SanitizerDector/
+CC=gcc #CC=/bigdata/fff000/UBGen/llvm_under_tested/LLVM-19.1.0-Linux-X64/bin/clang-19
+MutantHome=/home/sd/SanitizerDector/results/mutantsfiles #/home/sd/work/SanitizerDector/mutants #/bigdata/fff000/UBGen/mutants
+SDHOME=/home/sd/SanitizerDector/ #/bigdata/fff000/UBGen/SanitizerDector/
 SSEQ=$SDHOME/build/sseq
-CSMITH_PATH=/home/fff000/csmith/include
+CSMITH_PATH=/home/sd/SanitizerDector/csmith/output/include #/home/fff000/csmith/include
 OUTPUTFILE=$SDHOME/result.txt
 
 genCompileCommand() {
@@ -18,7 +18,7 @@ runCommandCheckString() {
 
     while true
     do
-        error_message=$(timeout 10 ./a.out 2>&1)
+        error_message=$(timeout 100 ./a.out 2>&1)
         exit_status=$?
         if [ $exit_status -eq 124 ]; then
             echo "./a.out command timeout for $programName"
@@ -29,8 +29,12 @@ runCommandCheckString() {
     done
     # Check if the error message contains a specific string
     if echo "$error_message" | grep -q $strtoCheck; then
+        echo $strtoCheck triggers
+        echo "$error_message"
         return 1
     else
+        echo $strtoCheck does not trigger
+        echo "$error_message"
         return 0
     fi
 }
@@ -74,7 +78,7 @@ testOneProgram() {
     echo $CC -g -O0 -Wno-everything -I$CSMITH_PATH -fsanitize=address $NewProgName
     $CC -g -O0 -Wno-everything -I$CSMITH_PATH -fsanitize=address $NewProgName &> /dev/null
     sleep 0.5
-    echo "runing UndefinedBehaviorSanitizer"
+    echo "runing AddressSanitizer"
     runCommandCheckString "AddressSanitizer" $NewProgName
     res2=$?
     echo "AS finished"
@@ -119,8 +123,8 @@ testing() {
     done <<< "$res"
 }
 
-testing
-#testOneProgram /bigdata/fff000/UBGen/mutants/mutated_1_tmpnutrj4np.c
+#testing
+testOneProgram /home/sd/SanitizerDector/results/mutantsfiles/mutated_0_tmprivw04ue.c
 
 
 
