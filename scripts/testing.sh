@@ -124,7 +124,7 @@ testOneProgram() {
     $CC -g -O0 -Wno-everything -I$CSMITH_PATH -fsanitize=address $NewProgName &> /dev/null
     sleep 0.5
     echo "runing AddressSanitizer"
-    runCommandCheckString "AddressSanitizer" $NewProgName "SaniCatcher0=SaniTestArr0\["
+    runCommandCheckString "AddressSanitizer" $NewProgName "/*A_QUITE_UNIQUE_FLAG/*"
     res2=$?
     echo "AS finished"
 
