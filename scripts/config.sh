@@ -1,4 +1,6 @@
-CC=/bigdata/fff000/UBGen/llvm_under_tested/LLVM-19.1.0-Linux-X64/bin/clang-19
+LLVMPATH=/bigdata/fff000/UBGen/llvm_under_tested/LLVM-19.1.0-Linux-X64/bin
+CC=$LLVMPATH/clang-19
+ASAN_SYMBOLIZER_PATH=$LLVMPATH/llvm-symbolizer
 UBGenHome=/bigdata/fff000/UBGen
 MutantHome=$UBGenHome/mutants
 SDHOME=$UBGenHome/SanitizerDector
