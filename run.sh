@@ -124,7 +124,7 @@ testing() {
 }
 
 #testing
-testOneProgram /home/sd/SanitizerDector/results/mutantsfiles/mutated_0_tmprivw04ue.c
+testOneProgram /home/sd/SanitizerDector/results/mutantsfiles/a.c
 
 
 
