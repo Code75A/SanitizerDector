@@ -1,4 +1,4 @@
-LLVMPATH=/bigdata/fff000/UBGen/llvm_under_tested/LLVM-19.1.0-Linux-X64/bin
+LLVMPATH=/home/sd/SanitizerDector/compiler/llvm-project-llvmorg-19.1.3/build/bin
 CC=$LLVMPATH/clang-19
 ASAN_SYMBOLIZER_PATH=$LLVMPATH/llvm-symbolizer
 UBGenHome=/home/sd

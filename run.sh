@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 
-CC=gcc #CC=/bigdata/fff000/UBGen/llvm_under_tested/LLVM-19.1.0-Linux-X64/bin/clang-19
+CC=clang #CC=/bigdata/fff000/UBGen/llvm_under_tested/LLVM-19.1.0-Linux-X64/bin/clang-19
 MutantHome=/home/sd/SanitizerDector/results/mutantsfiles #/home/sd/work/SanitizerDector/mutants #/bigdata/fff000/UBGen/mutants
 SDHOME=/home/sd/SanitizerDector/ #/bigdata/fff000/UBGen/SanitizerDector/
 SSEQ=$SDHOME/build/sseq
@@ -47,7 +47,7 @@ testOneProgram() {
     sleep 0.5
 
     echo "runing UndefinedBehaviorSanitizer"
-    runCommandCheckString "UndefinedBehaviorSanitizer" $programName
+    runCommandCheckString "division" $programName #runCommandCheckString "UndefinedBehaviorSanitizer" $programName
     res1=$?
     echo "UBS finished"
 
@@ -124,7 +124,7 @@ testing() {
 }
 
 #testing
-testOneProgram /home/sd/SanitizerDector/results/mutantsfiles/a.c
+testOneProgram /home/sd/SanitizerDector/results/mutantsfiles/a.c  #mutated_0_tmpvpkfbdd_.c
 
 
 

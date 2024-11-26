@@ -87,7 +87,7 @@ testOneProgram() {
     sleep 0.5
 
     echo "runing UndefinedBehaviorSanitizer"
-    runCommandCheckString "UndefinedBehaviorSanitizer" $programName "/*UBFUZZ/*"
+    runCommandCheckString "division" $programName "/*UBFUZZ/*" #runCommandCheckString "UndefinedBehaviorSanitizer" $programName "/*UBFUZZ/*"
     res1=$?
     echo "UBS finished"
 
