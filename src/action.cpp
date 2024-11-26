@@ -421,6 +421,8 @@ namespace sseq
                         if(stmt_string.find('/')!=-1 || stmt_string.find('%')!=-1){
                             judgeDiv(bop,insertStr,count,SM,UBFUZZ_column);
                         }
+                        insertStr->pop_back();
+                        *insertStr += "/*A_QUITE_UNIQUE_FLAG*/\n";
                         _rewriter.InsertTextBefore(stmt->getBeginLoc(),*insertStr);
                         }
                     //    if(lhs==nullptr || rhs==nullptr) return false;//防止空指针

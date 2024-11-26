@@ -9,15 +9,39 @@ genCompileCommand() {
     sed -e "s|\${MutantHome}|$programDir|g" -e "s|\${CSMITH_PATH}|$CSMITH_PATH|g" -e "s|\${TestFile}|$TestFile|g" $SDHOME/misc/compile_commands.json
 }
 
+
+checkStrNLine() {
+    local log=$1
+    local sourceCodeFile=$2
+    local checkedStr=$3
+
+    echo "All arguments: $2, $3"
+
+
+    # findLineNumberInlog
+    local line1=`echo "$log" | grep "^SUMMARY" | grep -oE ":[0-9]+(:[0-9]+)?" | sed -E 's/^:([0-9]+).*/\1/'`
+
+
+    # findLineNumberIn source file
+    local line2=`grep -n "$checkedStr" $sourceCodeFile |  head -n 1 | cut -d: -f1`
+
+    echo $line1 $line2
+    if [ $line1 -eq $line2 ]; then
+        return 0
+    fi
+    return 1
+}
+
 runCommandCheckString() {
     strtoCheck=$1
     programName=$2
+    checkedStr=$3
 
     time=0
     while true
     do
         ((time++))
-        error_message=$(timeout 100 ./a.out 2>&1)
+        error_message=$(ASAN_SYMBOLIZER_PATH=$ASAN_SYMBOLIZER_PATH timeout 100 ./a.out 2>&1)
         exit_status=$?
         if [ $exit_status -eq 124 ]; then
             echo "./a.out command timeout for $programName"
@@ -31,10 +55,19 @@ runCommandCheckString() {
             return -1
         fi
     done
+
     # Check if the error message contains a specific string
     if echo "$error_message" | grep -q $strtoCheck; then
         echo $strtoCheck triggers
         echo "$error_message"
+        checkStrNLine "$error_message" $programName $checkedStr
+        exit_status=$?
+        if [ $exit_status -ne 0 ]; then
+            echo "triggered bug is not the instrumented bug."
+            return 0
+        else
+            echo "triggered bug is the instrumented bug."
+        fi
         return 1
     else
         echo $strtoCheck does not trigger
@@ -42,6 +75,7 @@ runCommandCheckString() {
         return 0
     fi
 }
+
 
 testOneProgram() {
     programName=$1
@@ -53,7 +87,7 @@ testOneProgram() {
     sleep 0.5
 
     echo "runing UndefinedBehaviorSanitizer"
-    runCommandCheckString "UndefinedBehaviorSanitizer" $programName
+    runCommandCheckString "UndefinedBehaviorSanitizer" $programName "/*UBFUZZ/*"
     res1=$?
     echo "UBS finished"
 
@@ -90,7 +124,7 @@ testOneProgram() {
     $CC -g -O0 -Wno-everything -I$CSMITH_PATH -fsanitize=address $NewProgName &> /dev/null
     sleep 0.5
     echo "runing AddressSanitizer"
-    runCommandCheckString "AddressSanitizer" $NewProgName
+    runCommandCheckString "AddressSanitizer" $NewProgName "/*A_QUITE_UNIQUE_FLAG/*"
     res2=$?
     echo "AS finished"
 
@@ -145,7 +179,7 @@ testing() {
 
 if [ "${1}" != "--source-only"  ]; then
     testing
-    #testOneProgram /bigdata/fff000/UBGen/mutants/mutated_0_tmpgig8icnj_test.c
+    #testOneProgram /bigdata/fff000/UBGen/mutants/mutated_0_tmpgig8icnj.c
 fi
 
 
