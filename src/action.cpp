@@ -119,7 +119,7 @@ namespace sseq
         return Arr+Cat;
     }
 
-    void judgeDiv(const clang::BinaryOperator *bop,std::string* insertStr,int &count,clang::SourceManager& SM,const int c){
+    void SeqASTVisitor::judgeDiv(const clang::BinaryOperator *bop,std::string* insertStr,int &count,clang::SourceManager& SM,const int c){
         if(bop == nullptr)
         {
             std::cout<<"warnning:encounter nullptr,maybe not a binaryoperator\n";
@@ -130,7 +130,10 @@ namespace sseq
 
         clang::Expr *lhs=bop->getLHS();clang::Expr *rhs=bop->getRHS();
 
-
+        std::string prt=" print(\"XXX\") && ";
+        if(op == clang::BinaryOperator::Opcode::BO_LAnd || SM.getSpellingColumnNumber(rhs->getBeginLoc())>c){
+            _rewriter.InsertTextBefore(rhs->getBeginLoc(),prt);
+        }
 
         //std::cout<<"Class:"<<lhs->getStmtClassName()<<"--"<<rhs->getStmtClassName()<<std::endl;
 
