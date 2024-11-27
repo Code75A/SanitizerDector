@@ -131,11 +131,11 @@ namespace sseq
         clang::Expr *lhs=bop->getLHS();clang::Expr *rhs=bop->getRHS();
 
         std::string prt=" print(\"XXX\") && ";
-        if(op == clang::BinaryOperator::Opcode::BO_LAnd || SM.getSpellingColumnNumber(rhs->getBeginLoc())>c){
+        if(op == clang::BinaryOperator::Opcode::BO_LAnd && SM.getSpellingColumnNumber(rhs->getBeginLoc())<=c && SM.getSpellingColumnNumber(rhs->getEndLoc())>c){
             _rewriter.InsertTextBefore(rhs->getBeginLoc(),prt);
         }
 
-        //std::cout<<"Class:"<<lhs->getStmtClassName()<<"--"<<rhs->getStmtClassName()<<std::endl;
+        std::cout<<"Class:"<<lhs->getStmtClassName()<<"--"<<rhs->getStmtClassName()<<std::endl;
 
 
         if((op == clang::BinaryOperator::Opcode::BO_Div || op == clang::BinaryOperator::Opcode::BO_Rem) && 
