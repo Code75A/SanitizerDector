@@ -44,8 +44,10 @@ int main(int argc, const char **argv)
 
     //如果有需要输入参数，修改此处
     //argv[0]是程序exe名字，1之后是参数，当前demo里，argv[1]是编译数据库compile_commands.json的路径
- //   std::string path_info_file = argv[2]; 
-    sseq::SeqInfo seq_info(""); // 不需要参数就把这个删去
+    std::string module = argv[2];            //argv[2]是插桩模式
+    if(module!="div" && module!="print")
+        module="div";                        //default
+    sseq::SeqInfo seq_info(module);
     std::unique_ptr<sseq::SeqFactory> sseq_factory =
         std::make_unique<sseq::SeqFactory>(seq_info);// 接下来的操作在seq_action.h
 

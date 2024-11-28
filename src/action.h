@@ -39,6 +39,7 @@ class SeqASTVisitor : public clang::RecursiveASTVisitor<SeqASTVisitor>
     clang::SourceRange get_decl_sourcerange(clang::Decl *stmt);
     bool VisitFunctionDecl(clang::FunctionDecl *func_decl); //遍历函数节点
 
+    void judgePrint(const clang::BinaryOperator *bop,clang::SourceManager& SM,const int c,clang::SourceLocation &loc);
     void judgeDiv(const clang::BinaryOperator *bop,std::string* insertStr,int &count,clang::SourceManager& SM,const int c);
 };
 class SeqASTConsumer : public clang::ASTConsumer

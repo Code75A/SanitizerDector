@@ -119,25 +119,128 @@ namespace sseq
         return Arr+Cat;
     }
 
-    void SeqASTVisitor::judgeDiv(const clang::BinaryOperator *bop,std::string* insertStr,int &count,clang::SourceManager& SM,const int c){
-        if(bop == nullptr)
-        {
+    void SeqASTVisitor::judgePrint(const clang::BinaryOperator *bop,clang::SourceManager& SM,const int c,clang::SourceLocation &loc){
+        if(bop == nullptr){
             std::cout<<"warnning:encounter nullptr,maybe not a binaryoperator\n";
             return ;
         }
 
         clang::BinaryOperator::Opcode op = bop->getOpcode();
-
         clang::Expr *lhs=bop->getLHS();clang::Expr *rhs=bop->getRHS();
 
-        std::string prt=" print(\"XXX\") && ";
-        if(op == clang::BinaryOperator::Opcode::BO_LAnd && SM.getSpellingColumnNumber(rhs->getBeginLoc())<=c && SM.getSpellingColumnNumber(rhs->getEndLoc())>c){
-            _rewriter.InsertTextBefore(rhs->getBeginLoc(),prt);
+
+        llvm::StringRef opcodeStr = clang::BinaryOperator::getOpcodeStr(op);
+        std::cout << "Opcode: " << opcodeStr.str() << std::endl;
+        printf("%d vs %d\n",SM.getSpellingColumnNumber(rhs->getBeginLoc()),c);
+
+        
+
+        if(op==clang::BinaryOperator::Opcode::BO_LAnd && SM.getSpellingColumnNumber(rhs->getBeginLoc())<c && SM.getSpellingColumnNumber(rhs->getEndLoc())>=c){
+            loc=rhs->getBeginLoc();
+            printf("update loc: %d\n",SM.getSpellingColumnNumber(loc));
         }
 
-        std::cout<<"Class:"<<lhs->getStmtClassName()<<"--"<<rhs->getStmtClassName()<<std::endl;
+        std::cout<<"check lhs:"<<Tool::get_stmt_string(lhs)<<std::endl;
+        if((Tool::get_stmt_string(lhs).find('/')!=-1 || Tool::get_stmt_string(lhs).find('%')!=-1) && SM.getSpellingColumnNumber(lhs->getEndLoc()) >= c){
+            std::cout<<"check lhs:"<<Tool::get_stmt_string(lhs)<<std::endl;
+            
+            const clang::BinaryOperator *bopl=llvm::dyn_cast<clang::BinaryOperator>(lhs);
+            while(!bopl)
+            {
+                std::string type=lhs->getStmtClassName();
+                std::cout<<"lhs type:"<<type<<std::endl;
+                if(type=="ParenExpr"){
+                    clang::ParenExpr *plhs = llvm::dyn_cast<clang::ParenExpr>(lhs);
+                    lhs=plhs->getSubExpr();
+                }
+                else if(type=="ImplicitCastExpr"){
+                    clang::ImplicitCastExpr *plhs = llvm::dyn_cast<clang::ImplicitCastExpr>(lhs);
+                    lhs=plhs->getSubExpr();
 
+                    std::cout<<Tool::get_stmt_string(lhs)<<std::endl;
+                    std::cout<<"Class:"<<lhs->getStmtClassName()<<std::endl;
+                }
+                else if(type=="UnaryOperator"){
+                    clang::UnaryOperator *plhs = llvm::dyn_cast<clang::UnaryOperator>(lhs);
+                    lhs=plhs->getSubExpr();
+                }
+                else if(type=="CStyleCastExpr"){
+                    clang::CStyleCastExpr *plhs = llvm::dyn_cast<clang::CStyleCastExpr>(lhs);
+                    lhs=plhs->getSubExpr();
+                }
+                else if(type=="CallExpr"){
+                    for (auto &exp : lhs->children() )
+                        {
+                            if(SM.getSpellingColumnNumber(exp->getEndLoc()) >= c)
+                            {
+                                lhs=llvm::dyn_cast<clang::Expr>(exp);
+                                std::cout<<Tool::get_stmt_string(lhs)<<std::endl;
+                                break;
+                           }
+                        }
+                }
+                bopl=llvm::dyn_cast<clang::BinaryOperator>(lhs);
+            }
+            //std::cout<<"SUCC:"<<Tool::get_stmt_string(lhs)<<std::endl;
+                judgePrint(bopl,SM,c,loc);
+        }
 
+        std::cout<<"check rhs:"<<Tool::get_stmt_string(rhs)<<std::endl;
+        if((Tool::get_stmt_string(rhs).find('/')!=-1 || Tool::get_stmt_string(rhs).find('%')!=-1) && SM.getSpellingColumnNumber(rhs->getBeginLoc()) < c){
+            std::cout<<"check rhs:"<<Tool::get_stmt_string(rhs)<<std::endl;
+
+            const clang::BinaryOperator *bopr=llvm::dyn_cast<clang::BinaryOperator>(rhs);
+            while(!bopr)
+            {
+                std::string type=rhs->getStmtClassName();
+                std::cout<<"rhs type:"<<type<<std::endl;
+                if(type=="ParenExpr"){
+                    clang::ParenExpr *prhs = llvm::dyn_cast<clang::ParenExpr>(rhs);
+                    rhs=prhs->getSubExpr();
+                }
+                else if(type=="ImplicitCastExpr"){
+                    clang::ImplicitCastExpr *prhs = llvm::dyn_cast<clang::ImplicitCastExpr>(rhs);
+                    rhs=prhs->getSubExpr();
+                }
+                else if(type=="UnaryOperator"){
+                    clang::UnaryOperator *prhs = llvm::dyn_cast<clang::UnaryOperator>(rhs);
+                    rhs=prhs->getSubExpr();
+                }
+                else if(type=="CStyleCastExpr"){
+                    clang::CStyleCastExpr *prhs = llvm::dyn_cast<clang::CStyleCastExpr>(rhs);
+                    rhs=prhs->getSubExpr();
+                }
+                else if(type=="CallExpr"){
+                    for (auto &exp : rhs->children() )
+                        {
+                            if(SM.getSpellingColumnNumber(exp->getEndLoc()) >= c)
+                            {
+                                rhs=llvm::dyn_cast<clang::Expr>(exp);
+                                std::cout<<Tool::get_stmt_string(rhs)<<std::endl;
+                                break;
+                           }
+                        }
+                }
+
+                bopr=llvm::dyn_cast<clang::BinaryOperator>(rhs);
+            }
+            //std::cout<<"SUCC:"<<Tool::get_stmt_string(rhs)<<std::endl;
+                judgePrint(bopr,SM,c,loc);
+            
+        }
+        return ;
+
+    }
+
+    void SeqASTVisitor::judgeDiv(const clang::BinaryOperator *bop,std::string* insertStr,int &count,clang::SourceManager& SM,const int c){
+        if(bop == nullptr){
+            std::cout<<"warnning:encounter nullptr,maybe not a binaryoperator\n";
+            return ;
+        }
+
+        clang::BinaryOperator::Opcode op = bop->getOpcode();
+        clang::Expr *lhs=bop->getLHS();clang::Expr *rhs=bop->getRHS();
+        
         if((op == clang::BinaryOperator::Opcode::BO_Div || op == clang::BinaryOperator::Opcode::BO_Rem) && 
         (SM.getSpellingColumnNumber(rhs->getEndLoc())>c && SM.getSpellingColumnNumber(rhs->getBeginLoc())<c ))
         {
@@ -290,6 +393,7 @@ namespace sseq
             }
         }
 
+        //--------UBFUZZ localized--------
         int UBFUZZ_line=-1;
         int UBFUZZ_column=-1;
         static bool fir=false;
@@ -302,10 +406,9 @@ namespace sseq
             std::cout<<"UBFUZZ in line"<<UBFUZZ_line<<std::endl;
         }
 
+
         std::string func_name = func_decl->getNameAsString();
         std::cout<<"\n| Function [" << func_decl->getNameAsString() << "] defined in: " << filePath << "\n";
-
-        
 
         if (func_decl == func_decl->getDefinition())
         {
@@ -315,12 +418,11 @@ namespace sseq
             {
                 //遍历这个函数中的语句
                 //在第一个语句之前插入内容X
-                
-                //_rewriter.InsertTextAfter(stmt->getEndLoc(),s);
-                
-                // 方法1： 在此处判断语句类型 如果是有子语句的语句（如for\if\switch\while)则遍历其子语句查找除法运算和模运算 
+
                 // 可以通过get_stmt_string 可以输出该语句的内容，通过判断是否存在"/"或"%"字符来进行一次筛选
                 if(SM.getSpellingLineNumber(stmt->getEndLoc()) >= UBFUZZ_line && !fir){
+
+                    auto ori_stmt=stmt;
 
                     fir=true;
 
@@ -420,13 +522,30 @@ namespace sseq
                         std::string* insertStr=new std::string;
                         *insertStr="";
                         
-                        std::string stmt_string=Tool::get_stmt_string(stmt);
-                        if(stmt_string.find('/')!=-1 || stmt_string.find('%')!=-1){
-                            judgeDiv(bop,insertStr,count,SM,UBFUZZ_column);
+                        if(seq_info.module=="div"){
+                            printf("mode: div\n");
+
+                            std::string stmt_string=Tool::get_stmt_string(stmt);
+                            if(stmt_string.find('/')!=-1 || stmt_string.find('%')!=-1){
+                                judgeDiv(bop,insertStr,count,SM,UBFUZZ_column);
+                            }
+                            insertStr->pop_back();
+                            *insertStr += "/*A_QUITE_UNIQUE_FLAG*/\n";
+                            _rewriter.InsertTextBefore(ori_stmt->getBeginLoc(),*insertStr);
                         }
-                        insertStr->pop_back();
-                        *insertStr += "/*A_QUITE_UNIQUE_FLAG*/\n";
-                        _rewriter.InsertTextBefore(stmt->getBeginLoc(),*insertStr);
+
+                        if(seq_info.module=="print"){
+                            printf("mode: print\n");
+
+                            clang::SourceLocation loc=ori_stmt->getBeginLoc();
+                            judgePrint(bop,SM,UBFUZZ_column,loc);
+                            
+                            *insertStr=" print(\"XXX\") &&";
+                            if(loc!=ori_stmt->getBeginLoc())
+                                _rewriter.InsertTextBefore(loc,*insertStr);
+                        }
+
+                        
                         }
                     //    if(lhs==nullptr || rhs==nullptr) return false;//防止空指针
                     //   std::string lhs_class = lhs->getStmtClassName(),rhs_class = rhs->getStmtClassName();//需要考虑运算符左右子语句可能也是二元运算。所以可能需要设计递归函数
@@ -437,7 +556,8 @@ namespace sseq
             _rewriter.InsertTextBefore(func_decl->getBeginLoc(),initSani(count));
         }
 
-        
+
+
         return true;
     }
 
