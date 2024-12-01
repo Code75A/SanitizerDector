@@ -345,16 +345,13 @@ namespace sseq
     }
 
     void find_UB(int &l,int &c,const std::string& fname){
-        
         std::ifstream file(fname);
         if(!file){
             std::cout<<"file not exists"<<std::endl;
             return ;
         }
-
         l=0;
         std::string cur;
-
         while(std::getline(file,cur)){
             l++;
             if(cur.find("/*UBFUZZ*/") != -1){
@@ -362,27 +359,25 @@ namespace sseq
                 std::cout<<"line:"<<l<<" column:"<<c<<std::endl;
                 return ;
             }
-            
         }
-
         l=-1;
         return;
-
     }
 
     bool SeqASTVisitor::VisitFunctionDecl(clang::FunctionDecl *func_decl){
         if (!_ctx->getSourceManager().isInMainFile(func_decl->getLocation()))
-                return true;
+            return true;
         if (isInSystemHeader(func_decl->getLocation()))
             return true;
             
-            
-    //    func_decl->dump();
-        
+        //*****打印AST
+        //func_decl->dump();
+        //*****
         
         clang::SourceManager &SM = _ctx->getSourceManager();
         std::string filePath_abs = SM.getFilename(func_decl->getLocation()).str(); //绝对路径
         std::string filePath =filePath_abs;
+
         if(filePath.find("src/")!=std::string::npos){
             int pos = filePath.find("src/");
             size_t idx = filePath.find_last_of("/", pos);
@@ -397,15 +392,13 @@ namespace sseq
         int UBFUZZ_line=-1;
         int UBFUZZ_column=-1;
         static bool fir=false;
+
         find_UB(UBFUZZ_line,UBFUZZ_column,filePath);
-
-        if(UBFUZZ_line==-1){
+        if(UBFUZZ_line==-1)
             std::cout<<"Cant find a UBFUZZ sign"<<std::endl;
-        }
-        else{
+        else
             std::cout<<"UBFUZZ in line"<<UBFUZZ_line<<std::endl;
-        }
-
+        //--------UBFUZZ localized end--------
 
         std::string func_name = func_decl->getNameAsString();
         std::cout<<"\n| Function [" << func_decl->getNameAsString() << "] defined in: " << filePath << "\n";
@@ -414,150 +407,127 @@ namespace sseq
         {
             clang::Stmt *body_stmt = func_decl->getBody();
             int count=0;
-            for (auto &stmt : body_stmt->children())
+            for (auto &stmt : body_stmt->children())//遍历这个函数中的语句
             {
-                //遍历这个函数中的语句
-                //在第一个语句之前插入内容X
-
-                // 可以通过get_stmt_string 可以输出该语句的内容，通过判断是否存在"/"或"%"字符来进行一次筛选
-                if(SM.getSpellingLineNumber(stmt->getEndLoc()) >= UBFUZZ_line && !fir){
-
+                if(SM.getSpellingLineNumber(stmt->getEndLoc()) >= UBFUZZ_line && !fir){//定位到含有/*UBFUZZ*/的那行Stmt
                     auto ori_stmt=stmt;
-
                     fir=true;
+                    // std::cout<<Tool::get_stmt_string(stmt)<<std::endl;
+                     std::string type=stmt->getStmtClassName();
+                    while(type == "ForStmt" || type == "IfStmt"){
+                        fir=false;
 
-                    std::cout<<Tool::get_stmt_string(stmt)<<std::endl;
-                    std::string type=stmt->getStmtClassName();
-                    std::cout<<"type:"<<type<<std::endl;
-
-                        while(type == "ForStmt" || type == "IfStmt")
-                        {
-                            fir=false;
-                            if(type=="ForStmt"){
-                                clang::ForStmt *FS = llvm::dyn_cast<clang::ForStmt>(stmt);
-                                clang::Stmt *sbody=FS->getBody();
-                                //std::cout<<sbody->getStmtClassName()<<std::endl;
-                                    for (auto &s_stmt : sbody->children() )
-                                    {
-                                        // std::cout<<1;
-                                        // std::cout<<Tool::get_stmt_string(s_stmt);
-                                        // std::cout<<"STMT:"<<SM.getSpellingLineNumber(s_stmt->getEndLoc())<<std::endl;
-                                        if(SM.getSpellingLineNumber(s_stmt->getEndLoc()) >= UBFUZZ_line)
-                                        {
-                                            fir=true;
-                                            stmt=s_stmt;
-
-                                            type=stmt->getStmtClassName();
-                                            std::cout<<"type:"<<type<<std::endl;
-                                            break;
-                                        }
-                                    }
+                        if(type=="ForStmt"){
+                            clang::ForStmt *FS = llvm::dyn_cast<clang::ForStmt>(stmt);
+                            clang::Stmt *sbody=FS->getBody();
+                            //std::cout<<sbody->getStmtClassName()<<std::endl;
+                            for (auto &s_stmt : sbody->children() ){
+                                // std::cout<<Tool::get_stmt_string(s_stmt);
+                                // std::cout<<"STMT:"<<SM.getSpellingLineNumber(s_stmt->getEndLoc())<<std::endl;
+                                if(SM.getSpellingLineNumber(s_stmt->getEndLoc()) >= UBFUZZ_line){
+                                    fir=true;
+                                    stmt=s_stmt;
+                                    type=stmt->getStmtClassName();
+                                    //std::cout<<"type:"<<type<<std::endl;
+                                    break;
+                                }
                             }
-                            else if(type == "IfStmt"){
-                                clang::IfStmt *IS = llvm::dyn_cast<clang::IfStmt>(stmt);
-                                bool found=false;
-
-                                clang::Stmt *ibody=IS->getCond();
-                                for (auto &s_stmt : ibody->children() ){
-                                    std::cout<<"STMT:"<<SM.getSpellingLineNumber(s_stmt->getEndLoc())<<std::endl;
-                                            if(SM.getSpellingLineNumber(s_stmt->getEndLoc()) >= UBFUZZ_line)
-                                            {
-                                                fir=true;
-                                                stmt=s_stmt;
-
-                                                type=stmt->getStmtClassName();
-                                                std::cout<<"type:"<<type<<std::endl;
-                                                found=true;
-                                                break;
-                                            }
-                                }
-
-                                if(!found){
-                                        ibody=IS->getThen();
-                                    for (auto &s_stmt : ibody->children() ){
-                                            std::cout<<"STMT:"<<SM.getSpellingLineNumber(s_stmt->getEndLoc())<<std::endl;
-                                            if(SM.getSpellingLineNumber(s_stmt->getEndLoc()) >= UBFUZZ_line)
-                                            {
-                                                fir=true;
-                                                stmt=s_stmt;
-
-                                                type=stmt->getStmtClassName();
-                                                std::cout<<"type:"<<type<<std::endl;
-                                                found=true;
-                                                break;
-                                            }
-                                        }
-                                }
-                                
-                                if(!found){
-                                        ibody = IS->getElse();
-                                    if(ibody)
-                                        for (auto &s_stmt : ibody->children() ){
-                                                // std::cout<<1;
-                                                // std::cout<<Tool::get_stmt_string(s_stmt);
-                                                std::cout<<"STMT:"<<SM.getSpellingLineNumber(s_stmt->getEndLoc())<<std::endl;
-                                                if(SM.getSpellingLineNumber(s_stmt->getEndLoc()) >= UBFUZZ_line){
-                                                    fir=true;
-                                                    stmt=s_stmt;
-
-                                                    type=stmt->getStmtClassName();
-                                                    std::cout<<"type:"<<type<<std::endl;
-                                                    break;
-                                                }
-                                            }
-                                }
-
-                                
-                            }
-
-                            std::cout<<Tool::get_stmt_string(stmt)<<std::endl;
                         }
+                        else if(type == "IfStmt"){
+                        //查询条件
+                            clang::IfStmt *IS = llvm::dyn_cast<clang::IfStmt>(stmt);
+                            bool found=false;
+                            clang::Stmt *ibody=IS->getCond();
+                            for (auto &s_stmt : ibody->children() ){
+                            //std::cout<<"STMT:"<<SM.getSpellingLineNumber(s_stmt->getEndLoc())<<std::endl;
+                                if(SM.getSpellingLineNumber(s_stmt->getEndLoc()) >= UBFUZZ_line){
+                                    fir=true;
+                                    stmt=s_stmt;
+                                    type=stmt->getStmtClassName();
+                                    //std::cout<<"type:"<<type<<std::endl;
+                                    found=true;
+                                    break;
+                                }
+                            }
+                        //查询then分支
+                        if(!found){
+                            ibody=IS->getThen();
+                            for (auto &s_stmt : ibody->children() ){
+                                //std::cout<<"STMT:"<<SM.getSpellingLineNumber(s_stmt->getEndLoc())<<std::endl;
+                                if(SM.getSpellingLineNumber(s_stmt->getEndLoc()) >= UBFUZZ_line){
+                                    fir=true;
+                                    stmt=s_stmt;
+                                    type=stmt->getStmtClassName();
+                                    //std::cout<<"type:"<<type<<std::endl;
+                                    found=true;
+                                    break;
+                                }
+                            }
+                        }
+                        //查询else分支
+                        if(!found){
+                            ibody = IS->getElse();
+                        if(ibody)
+                            for (auto &s_stmt : ibody->children() ){
+                                //std::cout<<Tool::get_stmt_string(s_stmt);
+                                //std::cout<<"STMT:"<<SM.getSpellingLineNumber(s_stmt->getEndLoc())<<std::endl;
+                                if(SM.getSpellingLineNumber(s_stmt->getEndLoc()) >= UBFUZZ_line){
+                                    fir=true;
+                                    stmt=s_stmt;
+                                    type=stmt->getStmtClassName();
+                                    //std::cout<<"type:"<<type<<std::endl;
+                                    break;
+                                }
+                            }
+                        }
+                        //查询结束
+                        }
+                        //std::cout<<Tool::get_stmt_string(stmt)<<std::endl;
+                    }
 
-                        if(const clang::BinaryOperator *bop = llvm::dyn_cast<clang::BinaryOperator>(stmt)){// 这样是判断是不是二元运算
-                        
+                    if(const clang::BinaryOperator *bop = llvm::dyn_cast<clang::BinaryOperator>(stmt)){// 这样是判断是不是二元运算
                         clang::BinaryOperator::Opcode op = bop->getOpcode();//运算符，如op==clang::BinaryOperator::Opcode::BO_Comma 可以判断运算符是不是逗号
-                        
                         clang::Expr *lhs = bop->getLHS(); clang::Expr *rhs = bop->getRHS();
 
                         std::string* insertStr=new std::string;
                         *insertStr="";
-                        
-                        if(seq_info.module=="div"){
-                            printf("mode: div\n");
-
-                            std::string stmt_string=Tool::get_stmt_string(stmt);
-                            if(stmt_string.find('/')!=-1 || stmt_string.find('%')!=-1){
-                                judgeDiv(bop,insertStr,count,SM,UBFUZZ_column);
-                            }
-                            insertStr->pop_back();
-                            *insertStr += "/*A_QUITE_UNIQUE_FLAG*/\n";
-                            _rewriter.InsertTextBefore(ori_stmt->getBeginLoc(),*insertStr);
-                        }
-
-                        if(seq_info.module=="print"){
-                            printf("mode: print\n");
-
-                            clang::SourceLocation loc=ori_stmt->getBeginLoc();
-                            judgePrint(bop,SM,UBFUZZ_column,loc);
                             
-                            *insertStr=" print(\"XXX\") &&";
-                            if(loc!=ori_stmt->getBeginLoc())
-                                _rewriter.InsertTextBefore(loc,*insertStr);
+                        if(getFlag(MAIN_BIT)){
+
+                            if(getFlag(OPT_BIT)){
+                                printf("mode: print\n");
+
+                                clang::SourceLocation loc=ori_stmt->getBeginLoc();
+                                judgePrint(bop,SM,UBFUZZ_column,loc);
+                                    
+                                *insertStr=" printf(ACT_CHECK_CODE) &&";
+                                if(loc!=ori_stmt->getBeginLoc())
+                                    _rewriter.InsertTextBefore(loc,*insertStr);
+                            }
+                            else{
+                                printf("mode: div\n");
+
+                                std::string stmt_string=Tool::get_stmt_string(stmt);
+                                if(stmt_string.find('/')!=-1 || stmt_string.find('%')!=-1)
+                                    judgeDiv(bop,insertStr,count,SM,UBFUZZ_column);
+                                
+                                insertStr->pop_back();
+                                *insertStr += "/*A_QUITE_UNIQUE_FLAG*/\n";
+                                _rewriter.InsertTextBefore(ori_stmt->getBeginLoc(),*insertStr);
+                            }
+                            
+                        }
+                        else{
+                            //TODO
                         }
 
-                        
-                        }
+                    }
                     //    if(lhs==nullptr || rhs==nullptr) return false;//防止空指针
                     //   std::string lhs_class = lhs->getStmtClassName(),rhs_class = rhs->getStmtClassName();//需要考虑运算符左右子语句可能也是二元运算。所以可能需要设计递归函数
-                        
                 }
-               
             }
             _rewriter.InsertTextBefore(func_decl->getBeginLoc(),initSani(count));
         }
-
-
-
         return true;
     }
 

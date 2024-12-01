@@ -10,6 +10,9 @@
 #include "seq_info.h"
 #include "tool.h"
 
+#define FLAG_WIDTH 2
+#define MAIN_BIT 0
+#define OPT_BIT 1
 
 namespace sseq
 {
@@ -38,6 +41,12 @@ class SeqASTVisitor : public clang::RecursiveASTVisitor<SeqASTVisitor>
     clang::SourceRange get_sourcerange(clang::Stmt *stmt);
     clang::SourceRange get_decl_sourcerange(clang::Decl *stmt);
     bool VisitFunctionDecl(clang::FunctionDecl *func_decl); //遍历函数节点
+
+    bool getFlag(int index){
+      if(index>=FLAG_WIDTH)
+        return false;
+      else return seq_info.vflags[index];
+    };
 
     void judgePrint(const clang::BinaryOperator *bop,clang::SourceManager& SM,const int c,clang::SourceLocation &loc);
     void judgeDiv(const clang::BinaryOperator *bop,std::string* insertStr,int &count,clang::SourceManager& SM,const int c);
@@ -82,7 +91,17 @@ class SeqFrontendAction : public clang::ASTFrontendAction
         std::error_code ec;
         std::string file_name =
             SM.getFileEntryForID(SM.getMainFileID())->getName().str();
-        replace_suffix(file_name, "_test");//更改后缀
+
+        //更改后缀
+        if(seq_info.vflags[MAIN_BIT]){
+          if(seq_info.vflags[OPT_BIT])
+            replace_suffix(file_name, "_print");
+          else replace_suffix(file_name, "_div");
+        }
+        else
+          replace_suffix(file_name, "_test");
+          
+        
         llvm::raw_fd_stream fd(file_name, ec);
         _rewriter.getEditBuffer(SM.getMainFileID()).write(fd);
     }
@@ -96,7 +115,7 @@ class SeqFrontendAction : public clang::ASTFrontendAction
 class SeqFactory : public clang::tooling::FrontendActionFactory
 {
   public:
-    SeqFactory(SeqInfo &seq_i) : seq_info{ seq_i } {
+    SeqFactory(SeqInfo &seq_i) : seq_info{ seq_i }{
     }
     std::unique_ptr<clang::FrontendAction> create() override
     {
