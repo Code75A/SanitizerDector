@@ -500,7 +500,7 @@ namespace sseq
                                 clang::SourceLocation loc=ori_stmt->getBeginLoc();
                                 judgePrint(bop,SM,UBFUZZ_column,loc);
                                     
-                                *insertStr=" printf(ACT_CHECK_CODE) &&";
+                                *insertStr=" printf(\"ACT_CHECK_CODE\") &&";
                                 if(loc!=ori_stmt->getBeginLoc())
                                     _rewriter.InsertTextBefore(loc,*insertStr);
                             }
