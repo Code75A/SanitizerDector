@@ -427,6 +427,7 @@ namespace sseq
                                 if(SM.getSpellingLineNumber(s_stmt->getEndLoc()) >= UBFUZZ_line){
                                     fir=true;
                                     stmt=s_stmt;
+                                    ori_stmt=stmt;
                                     type=stmt->getStmtClassName();
                                     //std::cout<<"type:"<<type<<std::endl;
                                     break;
@@ -457,6 +458,7 @@ namespace sseq
                                 if(SM.getSpellingLineNumber(s_stmt->getEndLoc()) >= UBFUZZ_line){
                                     fir=true;
                                     stmt=s_stmt;
+                                    ori_stmt=stmt;
                                     type=stmt->getStmtClassName();
                                     //std::cout<<"type:"<<type<<std::endl;
                                     found=true;
@@ -474,6 +476,7 @@ namespace sseq
                                 if(SM.getSpellingLineNumber(s_stmt->getEndLoc()) >= UBFUZZ_line){
                                     fir=true;
                                     stmt=s_stmt;
+                                    ori_stmt=stmt;
                                     type=stmt->getStmtClassName();
                                     //std::cout<<"type:"<<type<<std::endl;
                                     break;
