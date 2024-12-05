@@ -96,8 +96,8 @@ namespace sseq
 
     void generateArray(int n,std::string v_name,std::string *insertStr){
         std::string num=std::to_string(n);
-        std::string a="SaniTestArr";
-        *insertStr+=("\n\tSaniCatcher"+num+"=SaniTestArr"+num+"["+v_name+"-1];\n");
+        //std::string a="SaniTestArr";
+        *insertStr=("\n\tSaniCatcher0=SaniTestArr0["+v_name+"-1];\n");
         return ;
     }
 
@@ -246,7 +246,8 @@ namespace sseq
         {
             std::cout<<"check"<<SM.getSpellingColumnNumber(rhs->getBeginLoc())<<std::endl;
             std::cout<<"check"<<SM.getSpellingColumnNumber(rhs->getEndLoc())<<std::endl;
-            generateArray(count++,Tool::get_stmt_string(rhs),insertStr);
+            count=1;
+            generateArray(count,Tool::get_stmt_string(rhs),insertStr);
         }
         //std::cout<<"check"<<SM.getSpellingColumnNumber(lhs->getEndLoc())<<"  ";
         
