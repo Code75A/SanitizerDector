@@ -506,6 +506,8 @@ namespace sseq
                                 *insertStr=" printf(\"ACT_CHECK_CODE\") &&";
                                 if(loc!=ori_stmt->getBeginLoc())
                                     _rewriter.InsertTextBefore(loc,*insertStr);
+                                else
+                                    _rewriter.InsertTextBefore(ori_stmt->getBeginLoc(),"printf(\"ACT_CHECK_CODE\");\n");
                             }
                             else{
                                 printf("mode: div\n");
