@@ -193,9 +193,9 @@ testing() {
 }
 
 if [ "${1}" != "--source-only"  ]; then
-    testing
-    #testOneProgram /bigdata/fff000/UBGen/mutants/mutated_0_tmpgig8icnj.c
-    #testOneProgram /bigdata/fff000/UBGen/mutants/mutated_0_tmpyzemsynh.c
+    #testing
+    #testOneProgram /bigdata/fff000/UBGen/mutants/mutated_0_tmprizq8ws1.c
+    testOneProgram /bigdata/fff000/UBGen/mutants/mutated_1_tmpcniozzx3.c
 fi
 
 

@@ -503,11 +503,11 @@ namespace sseq
                                 clang::SourceLocation loc=ori_stmt->getBeginLoc();
                                 judgePrint(bop,SM,UBFUZZ_column,loc);
                                     
-                                *insertStr=" printf(\"ACT_CHECK_CODE\") &&";
+                                *insertStr=" fprintf(stderr, \"ACT_CHECK_CODE\") &&";
                                 if(loc!=ori_stmt->getBeginLoc())
                                     _rewriter.InsertTextBefore(loc,*insertStr);
                                 else
-                                    _rewriter.InsertTextBefore(ori_stmt->getBeginLoc(),"printf(\"ACT_CHECK_CODE\");\n");
+                                    _rewriter.InsertTextBefore(ori_stmt->getBeginLoc(),"fprintf(stderr, \"ACT_CHECK_CODE\");\n");
                             }
                             else{
                                 printf("mode: div\n");
