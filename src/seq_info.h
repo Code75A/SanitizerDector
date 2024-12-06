@@ -9,14 +9,17 @@
 #include <vector>
 #include <unordered_map>
 #include <unordered_set>
+
+#include "llvm/ADT/BitVector.h"
+
 namespace sseq
 {
 class SeqInfo
 {
 public:
     //接收参数
-    SeqInfo(std::string fn) :file_name{ fn }\
-     { /*parse_file()*/;}
+    SeqInfo(std::string fname, llvm::BitVector f) :file_name{ fname }, vflags(f)\
+     { /*parse_file();*/}
 
     void parse_file()
     {
@@ -31,13 +34,14 @@ public:
         while (!ofs.eof())
         {
             ofs >> id; //文件输入
-            
-            
         }
         ofs.close();
     }
+
 //此处可以添加成员
+    // std::string module;
     std::string file_name;
+    llvm::BitVector vflags;
 };
 
 

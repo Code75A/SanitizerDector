@@ -33,9 +33,10 @@ checkStrNLine() {
 }
 
 runCommandCheckString() {
-    strtoCheck=$1
-    programName=$2
-    checkedStr=$3
+    local strtoCheck=$1
+    local programName=$2
+    local checkedStr=$3
+    local checkedStr2=$4
 
     time=0
     while true
@@ -55,6 +56,15 @@ runCommandCheckString() {
             return -1
         fi
     done
+
+    if [ "$checkedStr2" ]; then
+        if echo "$error_message" | grep -q $checkedStr2; then
+            echo "buggy location is executed"
+        else
+            echo "buggy location is missed, skipping"
+            return -1
+        fi
+    fi
 
     # Check if the error message contains a specific string
     if echo "$error_message" | grep -q $strtoCheck; then
@@ -82,30 +92,35 @@ testOneProgram() {
     programName=`readlink -f $programName`
     programDir=`dirname $programName`
     cd $programDir
-    echo $CC -g -O0 -Wno-everything -I$CSMITH_PATH -fsanitize=undefined $programName
-    $CC -g -O0 -Wno-everything -I$CSMITH_PATH -fsanitize=undefined $programName &> /dev/null
-    sleep 0.5
-
-    echo "runing UndefinedBehaviorSanitizer"
-    runCommandCheckString "division" $programName "/*UBFUZZ/*" #runCommandCheckString "UndefinedBehaviorSanitizer" $programName "/*UBFUZZ/*"
-    res1=$?
-    echo "UBS finished"
 
     #run sseq
     echo "genCompileCommand $programName $programDir > $programDir/compile_commands.json"
     genCompileCommand $programName $programDir > $programDir/compile_commands.json
-    res=`timeout 20 $SSEQ $programName 2>1`
-    echo "running timeout 20 $SSEQ $programName 2>1"
+    echo "running timeout 20 $SSEQ $programName div 2>1"
+    res=`timeout 20 $SSEQ $programName div 2>1`
+    res=`timeout 20 $SSEQ $programName div print 2>1`
     exit_status=$?
     # if sseq failed, we skip this file
     if [ $exit_status -eq 124 ]; then
-        echo "sseq command timeout for $programName"
-        echo "sseq command timeout for $programName" >> $OUTPUTFILE
+        echo "sseq command timeout for $programName div print"
+        echo "sseq command timeout for $programName div print" >> $OUTPUTFILE
         return
     fi
 
+    # compile _print file
+    printProgName=$( basename $programName .c )
+    printProgName=$printProgName"_print.c"
+    echo $CC -g -O0 -Wno-everything -I$CSMITH_PATH -fsanitize=undefined $printProgName
+    $CC -g -O0 -Wno-everything -I$CSMITH_PATH -fsanitize=undefined $printProgName &> /dev/null
+    sleep 0.5
+
+    echo "runing UndefinedBehaviorSanitizer"
+    runCommandCheckString "division" $printProgName "/*UBFUZZ/*" "ACT_CHECK_CODE"
+    local res1=$?
+    echo "UBS finished"
+
     NewProgName=$( basename $programName .c )
-    NewProgName=$NewProgName"_test.c"
+    NewProgName=$NewProgName"_div.c"
 
     retval=1
 
@@ -125,10 +140,10 @@ testOneProgram() {
     sleep 0.5
     echo "runing AddressSanitizer"
     runCommandCheckString "AddressSanitizer" $NewProgName "/*A_QUITE_UNIQUE_FLAG/*"
-    res2=$?
-    echo "AS finished"
+    local res2=$?
+    echo "AS finished, the results are $res1 vs $res2"
 
-    if [[ $res1 -eq -1 || $res2 -eq -1  ]]; then
+    if [[ $res1 -eq 255 || $res2 -eq 255 ]]; then
         echo "error occured"
 
     elif [ $res1 -ne $res2 ]; then
@@ -178,8 +193,9 @@ testing() {
 }
 
 if [ "${1}" != "--source-only"  ]; then
-    testing
-    #testOneProgram /bigdata/fff000/UBGen/mutants/mutated_0_tmpgig8icnj.c
+    #testing
+    #testOneProgram /bigdata/fff000/UBGen/mutants/mutated_0_tmprizq8ws1.c
+    testOneProgram /bigdata/fff000/UBGen/mutants/mutated_1_tmpcniozzx3.c
 fi
 
 
