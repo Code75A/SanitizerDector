@@ -19,13 +19,14 @@ checkStrNLine() {
 
 
     # findLineNumberInlog
-    local line1=`echo "$log" | grep "^SUMMARY" | grep -oE ":[0-9]+(:[0-9]+)?" | sed -E 's/^:([0-9]+).*/\1/'`
+    local line1=`echo "$log" | grep "^SUMMARY" | grep -oE ":[0-9]+(:[0-9]+)?" | head -n 1 | sed -E 's/^:([0-9]+).*/\1/'`
 
 
     # findLineNumberIn source file
     local line2=`grep -n "$checkedStr" $sourceCodeFile |  head -n 1 | cut -d: -f1`
 
-    echo $line1 $line2
+    echo $line1 
+    echo $line2
     if [ $line1 -eq $line2 ]; then
         return 0
     fi
@@ -104,7 +105,7 @@ testOneProgram() {
     if [ $exit_status -eq 124 ]; then
         echo "sseq command timeout for $programName div print"
         echo "sseq command timeout for $programName div print" >> $OUTPUTFILE
-        return
+        return 1
     fi
 
     # compile _print file
@@ -194,8 +195,9 @@ testing() {
 
 if [ "${1}" != "--source-only"  ]; then
     #testing
-    #testOneProgram /bigdata/fff000/UBGen/mutants/mutated_0_tmprizq8ws1.c
-    testOneProgram /bigdata/fff000/UBGen/mutants/mutated_1_tmpcniozzx3.c
+    testOneProgram /home/sd/SanitizerDector/results/mutantsfiles/a.c
+    #testOneProgram /bigdata/fff000/UBGen/mutants/mutated_1_tmpcniozzx3.c
+    #testOneProgram /home/sd/SanitizerDector/mutants241206/mutated_2_tmpv71x1w_v.c
 fi
 
 
