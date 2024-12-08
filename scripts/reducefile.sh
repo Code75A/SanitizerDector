@@ -2,7 +2,9 @@
 BASEDIR=$(dirname "$0")
 programName=$(readlink -f $1)
 creducetempDir="creducetemp"
-mkdir $creducetempDir
+if [ ! -d $creducetempDir ]; then
+    mkdir $creducetempDir
+fi
 creducetempDir=$(readlink -f $creducetempDir)
 #reduceFilePath=$creducetempDir/reduce.c
 reduceFilePath=./reduce.c
