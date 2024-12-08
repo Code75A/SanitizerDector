@@ -104,7 +104,7 @@ testOneProgram() {
     if [ $exit_status -eq 124 ]; then
         echo "sseq command timeout for $programName div print"
         echo "sseq command timeout for $programName div print" >> $OUTPUTFILE
-        return
+        return -1
     fi
 
     # compile _print file
@@ -112,6 +112,11 @@ testOneProgram() {
     printProgName=$printProgName"_print.c"
     echo $CC -g -O0 -Wno-everything -I$CSMITH_PATH -fsanitize=undefined $printProgName
     $CC -g -O0 -Wno-everything -I$CSMITH_PATH -fsanitize=undefined $printProgName &> /dev/null
+    # for creduce, avoid accept files with syntax errors.
+    if [[ $? -ne 0  ]]; then
+        echo "compile error!"
+        return -1
+    fi
     sleep 0.5
 
     echo "runing UndefinedBehaviorSanitizer"
@@ -137,6 +142,11 @@ testOneProgram() {
     cd $programDir
     echo $CC -g -O0 -Wno-everything -I$CSMITH_PATH -fsanitize=address $NewProgName
     $CC -g -O0 -Wno-everything -I$CSMITH_PATH -fsanitize=address $NewProgName &> /dev/null
+    # for creduce, avoid accept files with syntax errors.
+    if [[ $? -ne 0  ]]; then
+        echo "compile error!"
+        return -1
+    fi
     sleep 0.5
     echo "runing AddressSanitizer"
     runCommandCheckString "AddressSanitizer" $NewProgName "/*A_QUITE_UNIQUE_FLAG/*"
@@ -193,9 +203,9 @@ testing() {
 }
 
 if [ "${1}" != "--source-only"  ]; then
-    #testing
-    #testOneProgram /bigdata/fff000/UBGen/mutants/mutated_0_tmprizq8ws1.c
-    testOneProgram /bigdata/fff000/UBGen/mutants/mutated_1_tmpcniozzx3.c
+    testing
+    #testOneProgram /bigdata/fff000/UBGen/mutants/mutated_2_tmpq3c8wha8.c
+    #testOneProgram /bigdata/fff000/UBGen/mutants/mutated_1_tmpcniozzx3.c
 fi
 
 
