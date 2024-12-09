@@ -10,3 +10,4 @@ SSEQ=$SDHOME/build/sseq
 CSMITH_HOME=/home/sd/SanitizerDector/csmith
 CSMITH_PATH=$CSMITH_HOME/output/include
 OUTPUTFILE=$MutantHome/result.txt
+ReduceOUTPUTFILE=$SDHOME/creducetemp/result.txt
