@@ -20,6 +20,10 @@ checkStrNLine() {
 
     # findLineNumberInlog
     local line1=`echo "$log" | grep "^SUMMARY" | grep -oE ":[0-9]+(:[0-9]+)?" | head -n 1 | sed -E 's/^:([0-9]+).*/\1/'`
+    #when there is no SUMMARY
+    if [ -z "$line1" ]; then
+        line1=$(echo "$log" | grep "runtime error: division by zero" | grep -oE ":[0-9]+(:[0-9]+)?" | head -n 1 | sed -E 's/^:([0-9]+).*/\1/')
+    fi
 
 
     # findLineNumberIn source file
@@ -87,8 +91,22 @@ runCommandCheckString() {
     fi
 }
 
-
 testOneProgram() {
+    CC=$CLANG
+    testOneProgramWithOneCompiler $1
+    clangflag=$?
+
+    CC=$GCC
+    testOneProgramWithOneCompiler $1
+    gccflag=$?
+
+    #modify this for reduce
+    if [[ $clangflag -eq 0 || $gccflag -eq 0 ]]; then
+        return 0
+    fi
+}
+
+testOneProgramWithOneCompiler() {
     programName=$1
     programName=`readlink -f $programName`
     programDir=`dirname $programName`
@@ -158,8 +176,8 @@ testOneProgram() {
         echo "error occured"
 
     elif [ $res1 -ne $res2 ]; then
-        echo "found a bug"
-        echo "found a bug in $programName" >> $OUTPUTFILE
+        echo "found a bug of $CC"
+        echo "found a bug in $programName of $CC, $res1 vs $res2 " >> $OUTPUTFILE
         retval=0
     else
         echo "does not find a bug"
@@ -181,7 +199,7 @@ ProgressBar() {
     # 1.2 Build progressbar strings and print the ProgressBar line
     # 1.2.1 Output example:
     # 1.2.1.1 Progress : [########################################] 100%
-    printf "\rProgress : [${_fill// /#}${_empty// /-}] ${_progress}%%"
+    printf "\rProgress : [${_fill// /#}${_empty// /-}] ${_progress}%%\n"
 
 }
 
@@ -197,6 +215,12 @@ testing() {
         if [[ $filename == *_test.c  ]]; then
             continue
         fi
+        if [[ $filename == *_div.c  ]]; then
+            continue
+        fi
+        if [[ $filename == *_print.c  ]]; then
+            continue
+        fi
         testOneProgram $filename
         ProgressBar ${number} ${totalNum}
         ((number++))
@@ -205,8 +229,8 @@ testing() {
 
 if [ "${1}" != "--source-only"  ]; then
     testing
-    #testOneProgram /bigdata/fff000/UBGen/mutants/mutated_2_tmpq3c8wha8.c
-    #testOneProgram /bigdata/fff000/UBGen/mutants/mutated_1_tmpcniozzx3.c
+    #testOneProgram /home/sd/SanitizerDector/results/mutantsfiles/a.c
+    #testOneProgram /home/sd/SanitizerDector/mutants241206/mutated_0_tmpo6rkvwh2.c
 fi
 
 
