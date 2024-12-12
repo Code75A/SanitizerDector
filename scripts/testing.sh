@@ -101,8 +101,10 @@ testOneProgram() {
     gccflag=$?
 
     #modify this for reduce
-    if [[ $clangflag -eq 0 || $gccflag -eq 0 ]]; then
+    if [[ $clangflag -ne 0 && $gccflag -eq 0 ]]; then
         return 0
+    else
+        return 1
     fi
 }
 
