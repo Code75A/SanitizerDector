@@ -95,10 +95,18 @@ testOneProgram() {
     CC=$CLANG
     testOneProgramWithOneCompiler $1
     clangflag=$?
+    clangres1=$res1
+    clangres2=$res2
 
     CC=$GCC
     testOneProgramWithOneCompiler $1
     gccflag=$?
+    gccres1=$res1
+    gccres2=$res2
+
+    if [[ $clangflag -eq 0 || $gccflag -eq 0 ]]; then
+        echo "found a bug in $programName, clang: $clangres1 vs $clangres2, gcc: $gccres1 vs $gccres2 " >> $OUTPUTFILE
+    fi
 
     #modify this for reduce
     if [[ $clangflag -ne 0 && $gccflag -eq 0 ]]; then
@@ -142,7 +150,7 @@ testOneProgramWithOneCompiler() {
 
     echo "runing UndefinedBehaviorSanitizer"
     runCommandCheckString "division" $printProgName "/*UBFUZZ/*" "ACT_CHECK_CODE"
-    local res1=$?
+    res1=$?
     echo "UBS finished"
 
     NewProgName=$( basename $programName .c )
@@ -171,7 +179,7 @@ testOneProgramWithOneCompiler() {
     sleep 0.5
     echo "runing AddressSanitizer"
     runCommandCheckString "AddressSanitizer" $NewProgName "/*A_QUITE_UNIQUE_FLAG/*"
-    local res2=$?
+    res2=$?
     echo "AS finished, the results are $res1 vs $res2"
 
     if [[ $res1 -eq 255 || $res2 -eq 255 ]]; then
@@ -179,11 +187,13 @@ testOneProgramWithOneCompiler() {
 
     elif [ $res1 -ne $res2 ]; then
         echo "found a bug of $CC"
-        echo "found a bug in $programName of $CC, $res1 vs $res2 " >> $OUTPUTFILE
+        #echo "found a bug in $programName of $CC, $res1 vs $res2 " >> $OUTPUTFILE
         retval=0
     else
         echo "does not find a bug"
+        #echo "$programName of $CC, $res1 vs $res2 " >> $OUTPUTFILE
     fi
+
     return "$retval"
 
 }
@@ -231,8 +241,8 @@ testing() {
 
 if [ "${1}" != "--source-only"  ]; then
     testing
-    #testOneProgram /home/sd/SanitizerDector/results/mutantsfiles/a.c
-    #testOneProgram /home/sd/SanitizerDector/mutants241206/mutated_0_tmpo6rkvwh2.c
+    #testOneProgram /home/sd/SanitizerDector/mutants/results/mutantsfiles/a.c
+    #testOneProgram /home/sd/SanitizerDector/mutants/mutants241210/mutated_2_tmpbsdd4khf.c
 fi
 
 
