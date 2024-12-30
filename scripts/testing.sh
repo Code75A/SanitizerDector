@@ -260,9 +260,9 @@ testing() {
 }
 
 if [ "${1}" != "--source-only"  ]; then
-    testing
+    #testing
     #testOneProgram /home/sd/SanitizerDector/mutants/results/mutantsfiles/a.c
-    #testOneProgram /home/sd/SanitizerDector/mutants/mutants241210/mutated_2_tmpbsdd4khf.c
+    testOneProgram /home/sd/SanitizerDector/mutants/mutants241216/mutated_1_tmpkro_pbdo.c
 fi
 
 
