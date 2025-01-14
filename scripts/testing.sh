@@ -52,6 +52,7 @@ runCommandCheckString() {
         if [ $exit_status -eq 124 ]; then
             echo "./a.out command timeout for $programName"
             echo "./a.out command timeout for $programName" >> $OUTPUTFILE
+            return -1
         else
             break
         fi
@@ -143,8 +144,8 @@ testOneProgramWithOneCompiler() {
     # compile _print file
     printProgName=$( basename $programName .c )
     printProgName=$printProgName"_print.c"
-    echo $CC -g -O0 -Wno-everything -I$CSMITH_PATH -fsanitize=undefined $printProgName
-    $CC -g -O0 -Wno-everything -I$CSMITH_PATH -fsanitize=undefined $printProgName &> /dev/null
+    echo $CC -g -O1 -Wno-everything -I$CSMITH_PATH -fsanitize=undefined $printProgName
+    $CC -g -O1 -Wno-everything -I$CSMITH_PATH -fsanitize=undefined $printProgName &> /dev/null
     # for creduce, avoid accept files with syntax errors.
     if [[ $? -ne 0  ]]; then
         echo "compile error!"
@@ -173,8 +174,8 @@ testOneProgramWithOneCompiler() {
     fi
 
     cd $programDir
-    echo $CC -g -O0 -Wno-everything -I$CSMITH_PATH -fsanitize=address $NewProgName
-    $CC -g -O0 -Wno-everything -I$CSMITH_PATH -fsanitize=address $NewProgName &> /dev/null
+    echo $CC -g -O1 -Wno-everything -I$CSMITH_PATH -fsanitize=address $NewProgName
+    $CC -g -O1 -Wno-everything -I$CSMITH_PATH -fsanitize=address $NewProgName &> /dev/null
     # for creduce, avoid accept files with syntax errors.
     if [[ $? -ne 0  ]]; then
         echo "compile error!"
@@ -240,6 +241,10 @@ testing() {
             ((number++))
             continue
         fi
+        if [[ $filename == *_fp1.c  ]]; then
+            ((number++))
+            continue
+        fi
 
         # 获取当前文件的目录和文件名
         dir=$(dirname "$filename")
@@ -259,10 +264,32 @@ testing() {
     done <<< "$res"
 }
 
+init() {
+    cd $MutantHome
+    res=`find $MutantHome -name "*.c"`
+    while read filename
+    do
+        if [[ $filename == *_test.c  ]]; then
+            rm $filename
+        fi
+        if [[ $filename == *_div.c  ]]; then
+            rm $filename
+        fi
+        if [[ $filename == *_print.c  ]]; then
+            rm $filename
+        fi
+        if [[ $filename == *_fp1.c  ]]; then
+            rm $filename
+        fi
+
+    done <<< "$res"
+}
+
 if [ "${1}" != "--source-only"  ]; then
-    #testing
+    #init
+    testing
     #testOneProgram /home/sd/SanitizerDector/mutants/results/mutantsfiles/a.c
-    testOneProgram /home/sd/SanitizerDector/mutants/mutants241216/mutated_1_tmpkro_pbdo.c
+    #testOneProgram /home/sd/SanitizerDector/mutants/mutants241216/mutated_1_tmpkro_pbdo.c
 fi
 
 
