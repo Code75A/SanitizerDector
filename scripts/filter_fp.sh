@@ -9,6 +9,8 @@ fp1CheckOneProgram(){
     programName=`readlink -f $programName`
     programDir=`dirname $programName`
 
+    echo $programDir
+
     cd $programDir
 
     exeProgName=$( basename $programName .c )
@@ -86,5 +88,7 @@ fp1Check(){
 
 }
 
-fp1Check
-#fp1CheckOneProgram /home/sd/SanitizerDector/mutants/mutants241210/mutated_0_tmp72elu2jf.c
+if [ "${1}" != "--source-only"  ]; then
+    fp1Check
+    #fp1CheckOneProgram /home/sd/SanitizerDector/mutants/mutants241210/mutated_0_tmp72elu2jf.c
+fi

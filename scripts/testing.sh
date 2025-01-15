@@ -115,7 +115,7 @@ testOneProgram() {
     if [[ $clangres1 -ne 0 || $clangres2 -ne 1 ]]; then
         return 1
     fi
-    if [[ $gccres1 -ne 0 || $gccres2 -ne 0 ]]; then
+    if [[ $gccres1 -ne 0 || $gccres2 -ne 1 ]]; then
         return 1
     fi
     return 0
@@ -144,8 +144,8 @@ testOneProgramWithOneCompiler() {
     # compile _print file
     printProgName=$( basename $programName .c )
     printProgName=$printProgName"_print.c"
-    echo $CC -g -O1 -Wno-everything -I$CSMITH_PATH -fsanitize=undefined $printProgName
-    $CC -g -O1 -Wno-everything -I$CSMITH_PATH -fsanitize=undefined $printProgName &> /dev/null
+    echo $CC -g -O$OptLevel -Wno-everything -I$CSMITH_PATH -fsanitize=undefined $printProgName
+    $CC -g -O$OptLevel -Wno-everything -I$CSMITH_PATH -fsanitize=undefined $printProgName &> /dev/null
     # for creduce, avoid accept files with syntax errors.
     if [[ $? -ne 0  ]]; then
         echo "compile error!"
@@ -174,8 +174,8 @@ testOneProgramWithOneCompiler() {
     fi
 
     cd $programDir
-    echo $CC -g -O1 -Wno-everything -I$CSMITH_PATH -fsanitize=address $NewProgName
-    $CC -g -O1 -Wno-everything -I$CSMITH_PATH -fsanitize=address $NewProgName &> /dev/null
+    echo $CC -g -O$OptLevel -Wno-everything -I$CSMITH_PATH -fsanitize=address $NewProgName
+    $CC -g -O$OptLevel -Wno-everything -I$CSMITH_PATH -fsanitize=address $NewProgName &> /dev/null
     # for creduce, avoid accept files with syntax errors.
     if [[ $? -ne 0  ]]; then
         echo "compile error!"
