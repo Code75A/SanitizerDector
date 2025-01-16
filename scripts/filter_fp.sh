@@ -29,13 +29,13 @@ fp1CheckOneProgram(){
 fp1Check(){
     #check for clang 0 vs * or gcc 0 vs *
 
-    echo " " >> $OUTPUTFILE
-    echo "======filter fp1=====" >> $OUTPUTFILE
+    echo " " >> $FilterFPOUTPUTFILE
+    echo "======filter fp1=====" >> $FilterFPOUTPUTFILE
 
     #!/bin/bash
 
     # 输入文件路径
-    input_file=$OUTPUTFILE
+    input_file=$FilterFPOUTPUTFILE
 
     # 确保输入文件存在
     if [[ ! -f "$input_file" ]]; then
@@ -73,12 +73,13 @@ fp1Check(){
                 # echo "GCC: $gcc_1 vs $gcc_2"
                 # echo "--------------------------"
                 fp1CheckOneProgram $file_path
-                if [[ "$output" =~ output:-1end ]]; then
+                #if [[ "$output" =~ output:-1end ]]; then
+                if [[ "$output" =~ ^[^o]*output:-1end ]]; then
                     continue
                 fi
                 if [[ "$output" =~ output ]]; then
                     grep -v "$line" "$input_file" > temp.txt && mv temp.txt "$input_file"
-                    echo $line" "$output >> $OUTPUTFILE
+                    echo $line" "$output >> $FilterFPOUTPUTFILE
                 fi
                 
 

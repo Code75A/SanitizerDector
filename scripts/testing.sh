@@ -115,7 +115,7 @@ testOneProgram() {
     if [[ $clangres1 -ne 0 || $clangres2 -ne 1 ]]; then
         return 1
     fi
-    if [[ $gccres1 -ne 0 || $gccres2 -ne 1 ]]; then
+    if [[ $gccres1 -ne 1 || $gccres2 -ne 1 ]]; then
         return 1
     fi
     return 0

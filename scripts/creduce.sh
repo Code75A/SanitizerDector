@@ -14,7 +14,8 @@ retval=$?
 
 echo "fp1check for $programName"
 fp1CheckOneProgram $programName
-if [[ "$output" =~ output:-1end ]]; then
+#if [[ "$output" =~ output:-1end ]]; then
+if [[ "$output" =~ ^[^o]*output:-1end ]]; then
     echo "output -1"
 else
     echo "not interested"

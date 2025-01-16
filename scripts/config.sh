@@ -11,5 +11,6 @@ CSMITH_HOME=/home/sd/SanitizerDector/csmith
 CSMITH_PATH=$CSMITH_HOME/output/include
 OUTPUTFILE=$MutantHome/result241216.txt
 ReduceOUTPUTFILE=$SDHOME/creducetemp/result.txt
+FilterFPOUTPUTFILE=/home/sd/SanitizerDector/mutants/results/O0/result241206_FP1.txt
 OptLevel="1"
 reduceOptLevel="0"
