@@ -21,7 +21,9 @@ checkStrNLine() {
     # findLineNumberInlog
     local line1=`echo "$log" | grep "^SUMMARY" | grep -oE ":[0-9]+(:[0-9]+)?" | head -n 1 | sed -E 's/^:([0-9]+).*/\1/'`
     #when there is no SUMMARY
-    if [ -z "$line1" ]; then
+    #if [ -z "$line1" ]; then
+    #echo aaa: $checkedStr
+    if [[ "$checkedStr" == "/*UBFUZZ/*" ]]; then
         line1=$(echo "$log" | grep "runtime error: division by zero" | grep -oE ":[0-9]+(:[0-9]+)?" | head -n 1 | sed -E 's/^:([0-9]+).*/\1/')
     fi
 
