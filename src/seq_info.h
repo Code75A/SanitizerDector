@@ -3,6 +3,7 @@
 
 #include <fstream>
 #include <iostream>
+#include <sstream>
 #include <map>
 #include <set>
 #include <string>
@@ -24,15 +25,13 @@ public:
     void parse_file()
     {
         std::ifstream ofs(file_name);
-        if (!ofs.is_open())
-        {
+        if (!ofs.is_open()){
             std::cout << "[error]open file:" << file_name << " failed!\n";
             exit(-1);
         }
         std::cout << "open file:" << file_name << "!\n";
         std::string id;
-        while (!ofs.eof())
-        {
+        while (!ofs.eof())  {
             ofs >> id; //文件输入
         }
         ofs.close();

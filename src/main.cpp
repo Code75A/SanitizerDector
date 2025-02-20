@@ -47,8 +47,14 @@ int main(int argc, const char **argv)
     //argv[0]是程序exe名字，1之后是参数，当前demo里，argv[1]是编译数据库compile_commands.json的路径
     std::string mode="";
     std::string opt_set="";
+    std::string ubfuzz_set="";
 
     llvm::BitVector vflags(FLAG_WIDTH,false);
+
+    //arg[2]:mode           div/shf
+    //arg[3]:opt_set        print/[other]
+    //arg[4]:ubfuzz_set     mut/[other]
+
 
     if(argc>=3)
         mode=argv[2];
@@ -57,17 +63,23 @@ int main(int argc, const char **argv)
         vflags[MAIN_BIT]=1;
         if(argc>=4)
             opt_set=argv[3];
+        if(argc>=5)
+            ubfuzz_set=argv[4];
 
-        if(opt_set=="print"){
+        if(opt_set=="print")
             vflags[OPT_BIT]=1;
-        }
-        else{
+        else
             vflags[OPT_BIT]=0;
-        }
+        
+        if(ubfuzz_set=="mut")
+            vflags[MUT_BIT]=1;
+        else 
+            vflags[MUT_BIT]=0;
+
     }
     else if(mode=="shf"){
-        vflags[MAIN_BIT]=1;
-        mode="div";
+        vflags[MAIN_BIT]=0;
+        mode="shf";
     }
     else{
         vflags[MAIN_BIT]=1;

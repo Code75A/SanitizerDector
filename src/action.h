@@ -10,9 +10,10 @@
 #include "seq_info.h"
 #include "tool.h"
 
-#define FLAG_WIDTH 2
+#define FLAG_WIDTH 3
 #define MAIN_BIT 0
 #define OPT_BIT 1
+#define MUT_BIT 2
 
 namespace sseq
 {
@@ -48,9 +49,16 @@ class SeqASTVisitor : public clang::RecursiveASTVisitor<SeqASTVisitor>
       else return seq_info.vflags[index];
     };
 
+    void judgeShf(const clang::BinaryOperator *bop,const clang::BinaryOperator *last_bop,std::string* insertStr,clang::SourceManager& SM,int& bits);
     void judgePrint(const clang::BinaryOperator *bop,clang::SourceManager& SM,const int c,clang::SourceLocation &loc);
-    void judgeDiv(const clang::BinaryOperator *bop,std::string* insertStr,int &count,clang::SourceManager& SM,const int c);
+    void judgeDiv(const clang::BinaryOperator *bop,std::string* insertStr,int &count,clang::SourceManager& SM,const int c,clang::SourceLocation &loc);
+    void judgeDivWithoutUBFuzz(const clang::BinaryOperator *bop,std::string* insertStr,int &count,clang::SourceManager& SM,clang::Rewriter &_rewriter);
+
+    void JudgeAndInsert(clang::Stmt* &stmt,const clang::BinaryOperator *bop,clang::Rewriter &_rewriter,int &count,clang::SourceManager& SM,std::string type);
+    void LoopChildren(clang::Stmt*& stmt,const clang::BinaryOperator *bop,clang::Rewriter &_rewriter, int &count, clang::SourceManager& SM, std::string type,std::string stmt_string);
+
 };
+
 class SeqASTConsumer : public clang::ASTConsumer
 {
   public:
@@ -99,7 +107,7 @@ class SeqFrontendAction : public clang::ASTFrontendAction
           else replace_suffix(file_name, "_div");
         }
         else
-          replace_suffix(file_name, "_test");
+          replace_suffix(file_name, "_shf");
           
         
         llvm::raw_fd_stream fd(file_name, ec);

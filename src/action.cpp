@@ -51,6 +51,7 @@ namespace sseq
         
         return clang::SourceRange(loc,end);
     }
+
     //获得stmt的range
     clang::SourceRange SeqASTVisitor::get_sourcerange(clang::Stmt *stmt){
         clang::SourceRange SR = stmt->getSourceRange();
@@ -94,38 +95,41 @@ namespace sseq
 
     }
 
-//TODO: getSubExpr -> function
-
+    //生成第n对SaniCatcher和SaniTestArr,存入insertStr，以mode调控（如果需要添加更多模式，请更改mode）
     void generateArray(int n,std::string v_name,std::string *insertStr,const std::string mode){
         
         std::string num=std::to_string(n);
         //std::string a="SaniTestArr";
         if(mode=="div")
-            *insertStr=("\n\tSaniCatcher0=SaniTestArr0["+v_name+"-1];\n");
+            *insertStr=("(SaniCatcher"+num+"=SaniTestArr"+num+"[abs("+v_name+")-1]),");
         else if(mode=="shf")
             *insertStr=("\n\tSaniCatcher=SaniTestArr["+v_name+"];\n");
         else
             std::cout<<"Error: generateArray encounter invalid mode type."<<std::endl;
         return ;
     }
+    //生成第lst_n~n对SaniCatcher和SaniTestArr的定义字符串
+    std::string initSani(int lst_n,int n){
 
-    std::string initSani(int n){
-        if(n==0) return "";
+        std::cout<<"Sanicount:"<<n<<std::endl;
 
-        std::string Arr="int SaniTestArr0[10]";
-        for(int i=1;i<n;i++){
+        if(lst_n==n) return "";
+
+        std::string Arr="int SaniTestArr"+std::to_string(lst_n)+"[10]";
+        for(int i=lst_n+1;i<n;i++){
             Arr+=",SaniTestArr"+std::to_string(i)+"[10]";
         }
         Arr+=";\n";
 
-        std::string Cat="int SaniCatcher0";
-        for(int i=1;i<n;i++){
+        std::string Cat="int SaniCatcher"+std::to_string(lst_n);
+        for(int i=lst_n+1;i<n;i++){
             Cat+=",SaniCatcher"+std::to_string(i);
         }
         Cat+=";\n";
 
         return Arr+Cat;
     }
+    //生成shift模式下SaniCatcher和SaniTestArr的定义字符串,位移bits位
     std::string initSani_shf(int bits){
         if(bits==-1) return "";
 
@@ -137,6 +141,142 @@ namespace sseq
         return Arr+Cat;
     }
 
+    //true:str含/或%
+    bool PosDivideZero(std::string str){
+        return str.find('/')!=-1 || str.find('%')!=-1;
+    }
+
+    //TODO:注释
+    void GetSubExpr(clang::Stmt *&stmt,clang::Stmt *&ori_stmt, std::string type,bool &fir,clang::SourceManager& SM,int &UBFUZZ_line){
+        while(type == "ForStmt" || type == "IfStmt"){
+            fir=false;
+            if(type=="ForStmt"){
+                clang::ForStmt *FS = llvm::dyn_cast<clang::ForStmt>(stmt);
+                clang::Stmt *sbody=FS->getBody();
+                //std::cout<<sbody->getStmtClassName()<<std::endl;
+                for (auto &s_stmt : sbody->children() ){
+                    // std::cout<<Tool::get_stmt_string(s_stmt);
+                    // std::cout<<"STMT:"<<SM.getSpellingLineNumber(s_stmt->getEndLoc())<<std::endl;
+                    if(SM.getSpellingLineNumber(s_stmt->getEndLoc()) >= UBFUZZ_line){
+                        fir=true;
+                        stmt=s_stmt;
+                        ori_stmt=stmt;
+                        type=stmt->getStmtClassName();
+                        //std::cout<<"type:"<<type<<std::endl;
+                        break;
+                    }
+                }
+            }
+            else if(type == "IfStmt"){
+            //查询条件
+                clang::IfStmt *IS = llvm::dyn_cast<clang::IfStmt>(stmt);
+                bool found=false;
+                clang::Stmt *ibody=IS->getCond();
+                for (auto &s_stmt : ibody->children() ){
+                //std::cout<<"STMT:"<<SM.getSpellingLineNumber(s_stmt->getEndLoc())<<std::endl;
+                    if(SM.getSpellingLineNumber(s_stmt->getEndLoc()) >= UBFUZZ_line){
+                        fir=true;
+                        stmt=s_stmt;
+                        type=stmt->getStmtClassName();
+                        //std::cout<<"type:"<<type<<std::endl;
+                        found=true;
+                        break;
+                    }
+                }
+                //查询then分支
+                if(!found){
+                ibody=IS->getThen();
+                for (auto &s_stmt : ibody->children() ){
+                    //std::cout<<"STMT:"<<SM.getSpellingLineNumber(s_stmt->getEndLoc())<<std::endl;
+                    if(SM.getSpellingLineNumber(s_stmt->getEndLoc()) >= UBFUZZ_line){
+                        fir=true;
+                        stmt=s_stmt;
+                        ori_stmt=stmt;
+                        type=stmt->getStmtClassName();
+                        //std::cout<<"type:"<<type<<std::endl;
+                        found=true;
+                        break;
+                    }
+                }
+                }
+                //查询else分支
+                if(!found){
+                   ibody = IS->getElse();
+                if(ibody)
+                for (auto &s_stmt : ibody->children() ){
+                    //std::cout<<Tool::get_stmt_string(s_stmt);
+                    //std::cout<<"STMT:"<<SM.getSpellingLineNumber(s_stmt->getEndLoc())<<std::endl;
+                    if(SM.getSpellingLineNumber(s_stmt->getEndLoc()) >= UBFUZZ_line){
+                        fir=true;
+                        stmt=s_stmt;
+                        ori_stmt=stmt;
+                        type=stmt->getStmtClassName();
+                        //std::cout<<"type:"<<type<<std::endl;
+                        break;
+                    }
+                }
+                }
+                //查询结束
+                }
+            //std::cout<<Tool::get_stmt_string(stmt)<<std::endl;
+        }
+    }
+    //穷举UBFUZZ mode所有需要拆括号（提取SubExpr）的情况，并用SubExpr替换Expr
+    //TODO 
+    void GetSimplifiedExprUBFuzz(){
+
+    }
+    //穷举所有需要拆括号（提取SubExpr）的情况，并用SubExpr替换Expr
+    void GetSimplifiedExpr(clang::Expr *&hs,const clang::BinaryOperator *&bop,std::string type){
+        while(!bop){
+            type=hs->getStmtClassName();
+                
+            if(type=="ParenExpr"){
+                clang::ParenExpr *phs = llvm::dyn_cast<clang::ParenExpr>(hs);
+                hs=phs->getSubExpr();
+
+                std::cout<<Tool::get_stmt_string(hs)<<std::endl;
+            }
+            else if(type=="ImplicitCastExpr"){
+                clang::ImplicitCastExpr *phs = llvm::dyn_cast<clang::ImplicitCastExpr>(hs);
+                hs=phs->getSubExpr();
+                
+                std::cout<<Tool::get_stmt_string(hs)<<std::endl;
+                //std::cout<<"Class:"<<hs->getStmtClassName()<<std::endl;
+            }
+            else if(type=="UnaryOperator"){
+                clang::UnaryOperator *phs = llvm::dyn_cast<clang::UnaryOperator>(hs);
+                hs=phs->getSubExpr();
+
+                std::cout<<Tool::get_stmt_string(hs)<<std::endl;
+            }
+            else if(type=="CStyleCastExpr"){
+                clang::CStyleCastExpr *plhs = llvm::dyn_cast<clang::CStyleCastExpr>(hs);
+                hs=plhs->getSubExpr();
+
+                std::cout<<Tool::get_stmt_string(hs)<<std::endl;
+            }
+            else if(type=="CallExpr"){
+                for (auto &exp : hs->children() ){
+                        hs=llvm::dyn_cast<clang::Expr>(exp);
+                        //std::cout<<Tool::get_stmt_string(hs)<<std::endl;
+                        break;
+                }
+            }
+            else
+            {
+                std::cout<<"base:"<<type<<std::endl;
+                bop=llvm::dyn_cast<clang::BinaryOperator>(hs);
+                return;
+            }
+
+            bop=llvm::dyn_cast<clang::BinaryOperator>(hs);
+        }
+        std::cout<<"clear"<<std::endl;
+        return ;
+    }
+    
+    //TODO:注释
     void SeqASTVisitor::judgeShf(const clang::BinaryOperator *bop,const clang::BinaryOperator* last_bop,std::string* insertStr,clang::SourceManager& SM,int& bits){
         if(bop == nullptr){
             std::cout<<"warnning:encounter nullptr,maybe not a binaryoperator\n";
@@ -250,7 +390,7 @@ namespace sseq
         
         return ;
     }
-
+    //TODO:注释
     void SeqASTVisitor::judgePrint(const clang::BinaryOperator *bop,clang::SourceManager& SM,const int c,clang::SourceLocation &loc){
         if(bop == nullptr){
             std::cout<<"warnning:encounter nullptr,maybe not a binaryoperator\n";
@@ -273,7 +413,7 @@ namespace sseq
         }
 
         std::cout<<"check lhs:"<<Tool::get_stmt_string(lhs)<<std::endl;
-        if((Tool::get_stmt_string(lhs).find('/')!=-1 || Tool::get_stmt_string(lhs).find('%')!=-1) && SM.getSpellingColumnNumber(lhs->getEndLoc()) >= c){
+        if((PosDivideZero(Tool::get_stmt_string(lhs))) && SM.getSpellingColumnNumber(lhs->getEndLoc()) >= c){
             std::cout<<"check lhs:"<<Tool::get_stmt_string(lhs)<<std::endl;
             
             const clang::BinaryOperator *bopl=llvm::dyn_cast<clang::BinaryOperator>(lhs);
@@ -318,7 +458,7 @@ namespace sseq
         }
 
         std::cout<<"check rhs:"<<Tool::get_stmt_string(rhs)<<std::endl;
-        if((Tool::get_stmt_string(rhs).find('/')!=-1 || Tool::get_stmt_string(rhs).find('%')!=-1) && SM.getSpellingColumnNumber(rhs->getBeginLoc()) < c){
+        if((PosDivideZero(Tool::get_stmt_string(rhs))) && SM.getSpellingColumnNumber(rhs->getBeginLoc()) < c){
             std::cout<<"check rhs:"<<Tool::get_stmt_string(rhs)<<std::endl;
 
             const clang::BinaryOperator *bopr=llvm::dyn_cast<clang::BinaryOperator>(rhs);
@@ -363,8 +503,8 @@ namespace sseq
         return ;
 
     }
-
-    void SeqASTVisitor::judgeDiv(const clang::BinaryOperator *bop,std::string* insertStr,int &count,clang::SourceManager& SM,const int c){
+    //TODO:注释
+    void SeqASTVisitor::judgeDiv(const clang::BinaryOperator *bop,std::string* insertStr,int &count,clang::SourceManager& SM,const int c,clang::SourceLocation &loc){
         if(bop == nullptr){
             std::cout<<"warnning:encounter nullptr,maybe not a binaryoperator\n";
             return ;
@@ -379,11 +519,13 @@ namespace sseq
             std::cout<<"check"<<SM.getSpellingColumnNumber(rhs->getBeginLoc())<<std::endl;
             std::cout<<"check"<<SM.getSpellingColumnNumber(rhs->getEndLoc())<<std::endl;
             count=1;
-            generateArray(count,Tool::get_stmt_string(rhs),insertStr,"div");
+            generateArray(0,Tool::get_stmt_string(rhs),insertStr,"div");
+
+            loc=lhs->getBeginLoc();
         }
         
         std::cout<<"check lhs:"<<Tool::get_stmt_string(lhs)<<std::endl;
-        if((Tool::get_stmt_string(lhs).find('/')!=-1 || Tool::get_stmt_string(lhs).find('%')!=-1) && SM.getSpellingColumnNumber(lhs->getEndLoc()) >= c){
+        if((PosDivideZero(Tool::get_stmt_string(lhs))) && SM.getSpellingColumnNumber(lhs->getEndLoc()) >= c){
             std::cout<<"check lhs:"<<Tool::get_stmt_string(lhs)<<std::endl;
             
             const clang::BinaryOperator *bopl=llvm::dyn_cast<clang::BinaryOperator>(lhs);
@@ -391,6 +533,7 @@ namespace sseq
             {
                 std::string type=lhs->getStmtClassName();
                 std::cout<<"lhs type:"<<type<<std::endl;
+
                 if(type=="ParenExpr"){
                     clang::ParenExpr *plhs = llvm::dyn_cast<clang::ParenExpr>(lhs);
                     lhs=plhs->getSubExpr();
@@ -426,11 +569,11 @@ namespace sseq
                 bopl=llvm::dyn_cast<clang::BinaryOperator>(lhs);
             }
             //std::cout<<"SUCC:"<<Tool::get_stmt_string(lhs)<<std::endl;
-                judgeDiv(bopl,insertStr,count,SM,c);
+                judgeDiv(bopl,insertStr,count,SM,c,loc);
         }
 
         std::cout<<"check rhs:"<<Tool::get_stmt_string(rhs)<<std::endl;
-        if((Tool::get_stmt_string(rhs).find('/')!=-1 || Tool::get_stmt_string(rhs).find('%')!=-1) && SM.getSpellingColumnNumber(rhs->getBeginLoc()) <= c){
+        if((PosDivideZero(Tool::get_stmt_string(rhs))) && SM.getSpellingColumnNumber(rhs->getBeginLoc()) <= c){
             std::cout<<"check rhs:"<<Tool::get_stmt_string(rhs)<<std::endl;
 
             const clang::BinaryOperator *bopr=llvm::dyn_cast<clang::BinaryOperator>(rhs);
@@ -438,6 +581,7 @@ namespace sseq
             {
                 std::string type=rhs->getStmtClassName();
                 std::cout<<"rhs type:"<<type<<std::endl;
+
                 if(type=="ParenExpr"){
                     clang::ParenExpr *prhs = llvm::dyn_cast<clang::ParenExpr>(rhs);
                     rhs=prhs->getSubExpr();
@@ -470,12 +614,199 @@ namespace sseq
                 bopr=llvm::dyn_cast<clang::BinaryOperator>(rhs);
             }
             //std::cout<<"SUCC:"<<Tool::get_stmt_string(rhs)<<std::endl;
-                judgeDiv(bopr,insertStr,count,SM,c);
+                judgeDiv(bopr,insertStr,count,SM,c,loc);
             
         }
         return ;
     }
+    //TODO:注释
+    void SeqASTVisitor::judgeDivWithoutUBFuzz(const clang::BinaryOperator *bop,std::string* insertStr,int &count,clang::SourceManager& SM,clang::Rewriter &_rewriter){
+        if(bop == nullptr){
+            std::cout<<"warnning:encounter nullptr,maybe not a binaryoperator\n";
+            return ;
+        }
+        
+        clang::BinaryOperator::Opcode op = bop->getOpcode();
+        clang::Expr *lhs=bop->getLHS();clang::Expr *rhs=bop->getRHS();
 
+        if(op == clang::BinaryOperator::Opcode::BO_Div || op == clang::BinaryOperator::Opcode::BO_Rem)
+        {
+            generateArray(count++,Tool::get_stmt_string(rhs),insertStr,"div");
+
+            std::cout<<"count++"<<std::endl;
+
+            _rewriter.InsertTextBefore(lhs->getBeginLoc(),*insertStr);
+        }
+
+        std::cout<<"check lhs:"<<Tool::get_stmt_string(lhs)<<std::endl;
+        if(PosDivideZero(Tool::get_stmt_string(lhs))){
+            const clang::BinaryOperator *bopl=llvm::dyn_cast<clang::BinaryOperator>(lhs);
+            std::string type;
+
+            GetSimplifiedExpr(lhs,bopl,type);
+            //std::cout<<"SUCC:"<<Tool::get_stmt_string(lhs)<<std::endl;
+            if(bopl){
+                std::string* ninsertStr=new std::string;
+                *ninsertStr="";
+                judgeDivWithoutUBFuzz(bopl,ninsertStr,count,SM,_rewriter);
+            }
+                
+        }
+
+        std::cout<<"check rhs:"<<Tool::get_stmt_string(rhs)<<std::endl;
+        if(PosDivideZero(Tool::get_stmt_string(rhs))){
+            const clang::BinaryOperator *bopr=llvm::dyn_cast<clang::BinaryOperator>(rhs);
+            std::string type;
+
+            GetSimplifiedExpr(rhs,bopr,type);
+            //std::cout<<"SUCC:"<<Tool::get_stmt_string(rhs)<<std::endl;
+            if(bopr){
+                std::string* ninsertStr=new std::string;
+                *ninsertStr="";
+                judgeDivWithoutUBFuzz(bopr,ninsertStr,count,SM,_rewriter);
+            }
+            else
+            {
+                std::cout<<"what.";
+            }
+                
+        }
+        return ;
+    }
+    //TODO:注释
+    void SeqASTVisitor::JudgeAndInsert(clang::Stmt* &stmt,const clang::BinaryOperator *bop,clang::Rewriter &_rewriter,int &count,clang::SourceManager& SM,std::string type){
+        std::cout<<type<<std::endl;
+        if(type=="DeclStmt"){
+            clang::DeclStmt *phs = llvm::dyn_cast<clang::DeclStmt>(stmt);
+            clang::Decl * decl=phs->getSingleDecl();
+
+            if (clang::VarDecl *varDecl = llvm::dyn_cast<clang::VarDecl>(decl)) {
+                clang::Expr * expr = varDecl->getInit();
+
+                if(bop = llvm::dyn_cast<clang::BinaryOperator>(expr));
+                    GetSimplifiedExpr(expr,bop,expr->getStmtClassName());
+
+                std::string* insertStr=new std::string;
+                *insertStr="";
+
+                judgeDivWithoutUBFuzz(bop,insertStr,count,SM,_rewriter);
+            }
+        }
+        else if(bop = llvm::dyn_cast<clang::BinaryOperator>(stmt))
+        {
+            std::string* insertStr=new std::string;
+            *insertStr="";
+
+            judgeDivWithoutUBFuzz(bop,insertStr,count,SM,_rewriter);
+        }
+
+
+    }
+
+    //TODO:注释
+    void SeqASTVisitor::LoopChildren(clang::Stmt*& stmt,const clang::BinaryOperator *bop,clang::Rewriter &_rewriter, int &count, clang::SourceManager& SM, std::string type,std::string stmt_string)
+    {
+        if(type=="ForStmt"){
+                                clang::ForStmt *FS = llvm::dyn_cast<clang::ForStmt>(stmt);
+                                clang::Stmt *scond=FS->getCond();
+                                for(auto &s_stmt : scond->children()){
+                                    stmt_string=Tool::get_stmt_string(s_stmt);
+
+                                    type = s_stmt->getStmtClassName();
+
+                                    if(type == "ForStmt" || type == "IfStmt" || type == "CompoundStmt" )
+                                        LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string);
+
+                                    else if(PosDivideZero(stmt_string)){
+                                        JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName());
+                                    }
+                                }
+
+                                clang::Stmt *sbody=FS->getBody();
+                                for (auto &s_stmt : sbody->children() ){
+                                    stmt_string=Tool::get_stmt_string(s_stmt);
+
+                                    type = s_stmt->getStmtClassName();
+
+                                    if(type == "ForStmt" || type == "IfStmt" || type == "CompoundStmt" )
+                                        LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string);
+
+                                    else if(PosDivideZero(stmt_string)){
+                                        JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName());
+                                    }
+                                }
+                            }
+        else if(type == "IfStmt"){
+                            //查询条件
+                                clang::IfStmt *IS = llvm::dyn_cast<clang::IfStmt>(stmt);
+                            
+                                clang::Stmt *ibody=IS->getCond();
+                                for (auto &s_stmt : ibody->children() ){
+                                    stmt_string=Tool::get_stmt_string(s_stmt);
+
+                                    type = s_stmt->getStmtClassName();
+
+                                    if(type == "ForStmt" || type == "IfStmt" || type == "CompoundStmt" )
+                                        LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string);
+
+                                    else if(PosDivideZero(stmt_string)){
+                                        JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName());
+                                    }
+                                }
+
+                                ibody=IS->getThen();
+                                for (auto &s_stmt : ibody->children() ){
+                                    stmt_string=Tool::get_stmt_string(s_stmt);
+
+                                    type = s_stmt->getStmtClassName();
+
+                                    if(type == "ForStmt" || type == "IfStmt" || type == "CompoundStmt" )
+                                        LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string);
+
+                                    else if(PosDivideZero(stmt_string)){
+                                        JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName());
+                                    }
+                                }
+                                
+                                ibody = IS->getElse();
+                                if(ibody){
+                                for (auto &s_stmt : ibody->children() ){
+                                    stmt_string=Tool::get_stmt_string(s_stmt);
+
+                                    type = s_stmt->getStmtClassName();
+
+                                    if(type == "ForStmt" || type == "IfStmt" || type == "CompoundStmt" )
+                                        LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string);
+
+                                    else if(PosDivideZero(stmt_string)){
+                                        JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName());
+                                    }
+                                }
+                                }
+                            }
+        else if(type == "CompoundStmt")
+        {
+            clang::CompoundStmt *CS = llvm::dyn_cast<clang::CompoundStmt>(stmt);
+            for (auto &s_stmt : CS->body()) 
+            {
+                std::cout<<Tool::get_stmt_string(s_stmt)<<std::endl;
+
+                stmt_string=Tool::get_stmt_string(s_stmt);
+
+                                    type = s_stmt->getStmtClassName();
+
+                                    if(type == "ForStmt" || type == "IfStmt" || type == "CompoundStmt" )
+                                        LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string);
+
+                                    else if(PosDivideZero(stmt_string)){
+                                        std::cout<<"MayInsert."<<std::endl;
+                                        JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName());
+                                    }
+            }
+        }
+    }
+
+    //定位UBFUZZ位置并存入line和column
     void find_UB(int &l,int &c,const std::string& fname){
         std::ifstream file(fname);
         if(!file){
@@ -495,6 +826,7 @@ namespace sseq
         l=-1;
         return;
     }
+    //TODO:注释
     void find_INTOP(std::pair<int,int> &intopl, std::pair<int,int> &intopr,const std::string& fname,int UB_line){
         std::ifstream file(fname);
         if(!file){
@@ -551,6 +883,37 @@ namespace sseq
         return ;
 
     }
+    
+    //寻找是否带有stdlib.h头文件,如果没有则会自动补充在文件首部
+    void find_stdlib(const std::string& fname,clang::Rewriter &_rewriter,bool &fir){
+        std::ifstream file(fname);
+        if(!file){
+            std::cout<<"file not exists--in find_UB"<<std::endl;
+            return ;
+        }
+        std::string cur;
+        while(std::getline(file,cur)){
+            if(cur.find("stdlib.h") != -1 && cur.find("#include") != -1){
+                return ;
+            }
+        }
+
+        clang::SourceLocation insertLoc = _rewriter.getSourceMgr().getLocForStartOfFile(_rewriter.getSourceMgr().getMainFileID());
+
+        if(!fir)
+        {
+            _rewriter.InsertText(insertLoc,"#include <stdlib.h>\n");
+            fir=true;
+        }
+        
+
+        return;
+    }
+    
+    int last_count=0;
+    int count=0;   
+    //WARNING: used in diffrent roles in mut and ubfuzz, may be unhealthy.
+    static bool fir=false;//short for 'first' 
 
     bool SeqASTVisitor::VisitFunctionDecl(clang::FunctionDecl *func_decl){
         if (!_ctx->getSourceManager().isInMainFile(func_decl->getLocation()))
@@ -576,21 +939,23 @@ namespace sseq
             }
         }
 
-        //--------UBFUZZ localized--------
         int UBFUZZ_line=-1;
         int UBFUZZ_column=-1;
-        static bool fir=false;
 
-        find_UB(UBFUZZ_line,UBFUZZ_column,filePath);
-        if(UBFUZZ_line==-1)
-            std::cout<<"Cant find a UBFUZZ sign"<<std::endl;
-        else
-            std::cout<<"UBFUZZ in line"<<UBFUZZ_line<<std::endl;
+        //--------UBFUZZ localized--------
+        if(!getFlag(MUT_BIT)){
+            find_UB(UBFUZZ_line,UBFUZZ_column,filePath);
+            if(UBFUZZ_line==-1)
+                std::cout<<"Cant find a UBFUZZ sign"<<std::endl;
+            else
+                std::cout<<"UBFUZZ in line"<<UBFUZZ_line<<std::endl;
+        }
         //--------UBFUZZ localized end--------
 
         std::pair<int,int> intopl_loc=std::make_pair(-1,-1);
         std::pair<int,int> intopr_loc=std::make_pair(-1,-1);
         int bits=-1;
+
         //--------shift redirection--------        
         if(!getFlag(MAIN_BIT)){
             find_INTOP(intopl_loc,intopr_loc,filePath,UBFUZZ_line);
@@ -601,150 +966,141 @@ namespace sseq
 
         std::string func_name = func_decl->getNameAsString();
         std::cout<<"\n| Function [" << func_decl->getNameAsString() << "] defined in: " << filePath << "\n";
-
+        
         if (func_decl == func_decl->getDefinition())
         {
+
             clang::Stmt *body_stmt = func_decl->getBody();
-            int count=0;
-            for (auto &stmt : body_stmt->children())//遍历这个函数中的语句
+            //SaniCatcherPairs count
+                        
+            //遍历这个函数中的语句
+            if(getFlag(MAIN_BIT) && getFlag(MUT_BIT))
             {
-                if(SM.getSpellingLineNumber(stmt->getEndLoc()) >= UBFUZZ_line && !fir){//定位到含有/*UBFUZZ*/的那行Stmt
-                    auto ori_stmt=stmt;
-                    fir=true;
-                    // std::cout<<Tool::get_stmt_string(stmt)<<std::endl;
-                     std::string type=stmt->getStmtClassName();
-                    while(type == "ForStmt" || type == "IfStmt"){
-                        fir=false;
+                const clang::BinaryOperator *bop;
+                //clang::BinaryOperator::Opcode op;
+                //clang::Expr *lhs; clang::Expr *rhs;
 
-                        if(type=="ForStmt"){
-                            clang::ForStmt *FS = llvm::dyn_cast<clang::ForStmt>(stmt);
-                            clang::Stmt *sbody=FS->getBody();
-                            //std::cout<<sbody->getStmtClassName()<<std::endl;
-                            for (auto &s_stmt : sbody->children() ){
-                                // std::cout<<Tool::get_stmt_string(s_stmt);
-                                // std::cout<<"STMT:"<<SM.getSpellingLineNumber(s_stmt->getEndLoc())<<std::endl;
-                                if(SM.getSpellingLineNumber(s_stmt->getEndLoc()) >= UBFUZZ_line){
-                                    fir=true;
-                                    stmt=s_stmt;
-                                    ori_stmt=stmt;
-                                    type=stmt->getStmtClassName();
-                                    //std::cout<<"type:"<<type<<std::endl;
-                                    break;
-                                }
-                            }
+                for (auto &stmt : body_stmt->children())
+                {
+                    auto ori_stmt = stmt;
+                    clang::SourceLocation insert_loc = ori_stmt->getBeginLoc();
+
+                    std::string stmt_string=Tool::get_stmt_string(stmt);
+                    
+                    if(PosDivideZero(stmt_string))
+                    {
+                        std::cout<<"stmt:"<<stmt_string<<std::endl;
+                        std::string type = stmt->getStmtClassName();
+
+                        
+                        if(type == "ForStmt" || type == "IfStmt" || type == "CompoundStmt" )
+                            LoopChildren(stmt,bop,_rewriter,count,SM,type,stmt_string);
+                        else
+                        {
+                            JudgeAndInsert(stmt,bop,_rewriter,count,SM,stmt->getStmtClassName());     
                         }
-                        else if(type == "IfStmt"){
-                        //查询条件
-                            clang::IfStmt *IS = llvm::dyn_cast<clang::IfStmt>(stmt);
-                            bool found=false;
-                            clang::Stmt *ibody=IS->getCond();
-                            for (auto &s_stmt : ibody->children() ){
-                            //std::cout<<"STMT:"<<SM.getSpellingLineNumber(s_stmt->getEndLoc())<<std::endl;
-                                if(SM.getSpellingLineNumber(s_stmt->getEndLoc()) >= UBFUZZ_line){
-                                    fir=true;
-                                    stmt=s_stmt;
-                                    type=stmt->getStmtClassName();
-                                    //std::cout<<"type:"<<type<<std::endl;
-                                    found=true;
-                                    break;
-                                }
-                            }
-                        //查询then分支
-                        if(!found){
-                            ibody=IS->getThen();
-                            for (auto &s_stmt : ibody->children() ){
-                                //std::cout<<"STMT:"<<SM.getSpellingLineNumber(s_stmt->getEndLoc())<<std::endl;
-                                if(SM.getSpellingLineNumber(s_stmt->getEndLoc()) >= UBFUZZ_line){
-                                    fir=true;
-                                    stmt=s_stmt;
-                                    ori_stmt=stmt;
-                                    type=stmt->getStmtClassName();
-                                    //std::cout<<"type:"<<type<<std::endl;
-                                    found=true;
-                                    break;
-                                }
-                            }
-                        }
-                        //查询else分支
-                        if(!found){
-                            ibody = IS->getElse();
-                        if(ibody)
-                            for (auto &s_stmt : ibody->children() ){
-                                //std::cout<<Tool::get_stmt_string(s_stmt);
-                                //std::cout<<"STMT:"<<SM.getSpellingLineNumber(s_stmt->getEndLoc())<<std::endl;
-                                if(SM.getSpellingLineNumber(s_stmt->getEndLoc()) >= UBFUZZ_line){
-                                    fir=true;
-                                    stmt=s_stmt;
-                                    ori_stmt=stmt;
-                                    type=stmt->getStmtClassName();
-                                    //std::cout<<"type:"<<type<<std::endl;
-                                    break;
-                                }
-                            }
-                        }
-                        //查询结束
-                        }
-                        //std::cout<<Tool::get_stmt_string(stmt)<<std::endl;
+                                // if(getFlag(OPT_BIT)){
+                                //     std::cout<<"mode: print"<<std::endl;
+
+                                //     clang::SourceLocation loc=ori_stmt->getBeginLoc();
+                                //     judgePrint(bop,SM,UBFUZZ_column,loc);
+                                            
+                                //     *insertStr=" fprintf(stderr, \"ACT_CHECK_CODE\") &&";
+                                //     if(loc!=ori_stmt->getBeginLoc())
+                                //         _rewriter.InsertTextBefore(loc,*insertStr);
+                                //     else
+                                //         _rewriter.InsertTextBefore(ori_stmt->getBeginLoc(),"fprintf(stderr, \"ACT_CHECK_CODE\");\n");
+                                // } ?
                     }
+                    else continue;
+                }
 
-                    if(const clang::BinaryOperator *bop = llvm::dyn_cast<clang::BinaryOperator>(stmt)){// 这样是判断是不是二元运算
-                        clang::BinaryOperator::Opcode op = bop->getOpcode();//运算符，如op==clang::BinaryOperator::Opcode::BO_Comma 可以判断运算符是不是逗号
-                        clang::Expr *lhs = bop->getLHS(); clang::Expr *rhs = bop->getRHS();
+            }
+            else
+            {
+                for (auto &stmt : body_stmt->children())
+                {
+                    //定位到含有/*UBFUZZ*/的那行Stmt
+                    std::cout<<"checkline:"<<SM.getSpellingLineNumber(stmt->getEndLoc());
+                    
+                    if(SM.getSpellingLineNumber(stmt->getEndLoc()) >= UBFUZZ_line && !fir){
+                        auto ori_stmt = stmt;
+                        clang::SourceLocation insert_loc=ori_stmt->getBeginLoc();
 
-                        std::string* insertStr=new std::string;
-                        *insertStr="";
-                            
-                        if(getFlag(MAIN_BIT)){
-                            if(getFlag(OPT_BIT)){
-                                std::cout<<"mode: print"<<std::endl;
+                        fir=true;
+                        
+                        std::string type=stmt->getStmtClassName();
+                        
+                        GetSubExpr(stmt,ori_stmt,type,fir,SM,UBFUZZ_line);
+                        
+                        // 判断是不是二元运算
+                        if(const clang::BinaryOperator *bop = llvm::dyn_cast<clang::BinaryOperator>(stmt)){
+                            clang::BinaryOperator::Opcode op = bop->getOpcode();//运算符，如op==clang::BinaryOperator::Opcode::BO_Comma 可以判断运算符是不是逗号
+                            clang::Expr *lhs = bop->getLHS(); clang::Expr *rhs = bop->getRHS();
 
-                                clang::SourceLocation loc=ori_stmt->getBeginLoc();
-                                judgePrint(bop,SM,UBFUZZ_column,loc);
+                            std::string* insertStr=new std::string;
+                            *insertStr="";
+                                
+                            if(getFlag(MAIN_BIT)){
+                                //for '&& situation', print the check_code
+                                if(getFlag(OPT_BIT)){
+                                    std::cout<<"mode: print"<<std::endl;
+
+                                    clang::SourceLocation loc=ori_stmt->getBeginLoc();
+                                    judgePrint(bop,SM,UBFUZZ_column,loc);
+                                        
+                                    *insertStr=" fprintf(stderr, \"ACT_CHECK_CODE\") &&";
+                                    if(loc!=ori_stmt->getBeginLoc())
+                                        _rewriter.InsertTextBefore(loc,*insertStr);
+                                    else
+                                        _rewriter.InsertTextBefore(ori_stmt->getBeginLoc(),"fprintf(stderr, \"ACT_CHECK_CODE\");\n");
+                                }
+                                else{
+                                    std::cout<<"mode: div"<<std::endl;
+
+                                    std::string stmt_string=Tool::get_stmt_string(stmt);
+                                    if(PosDivideZero(stmt_string))
+                                        judgeDiv(bop,insertStr,count,SM,UBFUZZ_column,insert_loc);
                                     
-                                *insertStr=" fprintf(stderr, \"ACT_CHECK_CODE\") &&";
-                                if(loc!=ori_stmt->getBeginLoc())
-                                    _rewriter.InsertTextBefore(loc,*insertStr);
-                                else
-                                    _rewriter.InsertTextBefore(ori_stmt->getBeginLoc(),"fprintf(stderr, \"ACT_CHECK_CODE\");\n");
+                                    //insertStr->pop_back(); //delete the last character
+                                    *insertStr += "/*A_QUITE_UNIQUE_FLAG*/\n";
+                                    _rewriter.InsertTextBefore(insert_loc,*insertStr);
+                                }   
                             }
                             else{
-                                std::cout<<"mode: div"<<std::endl;
+                                std::cout<<"mode: shift"<<std::endl;
 
                                 std::string stmt_string=Tool::get_stmt_string(stmt);
-                                if(stmt_string.find('/')!=-1 || stmt_string.find('%')!=-1)
-                                    judgeDiv(bop,insertStr,count,SM,UBFUZZ_column);
+
+                                std::cout<<stmt_string<<"-----"<<std::endl;
+
+                                //UBFUZZ_column=stmt_string.find("+ (MUT_VAR)");
+
                                 
-                                insertStr->pop_back();
-                                *insertStr += "/*A_QUITE_UNIQUE_FLAG*/\n";
+                                judgeShf(bop,nullptr,insertStr,SM,bits);
+
                                 _rewriter.InsertTextBefore(ori_stmt->getBeginLoc(),*insertStr);
-                            }   
-                        }
-                        else{
-                            std::cout<<"mode: shift"<<std::endl;
 
-                            std::string stmt_string=Tool::get_stmt_string(stmt);
-
-                            std::cout<<stmt_string<<"-----"<<std::endl;
-
-                            //UBFUZZ_column=stmt_string.find("+ (MUT_VAR)");
-
-                            
-                            judgeShf(bop,nullptr,insertStr,SM,bits);
-
-                            _rewriter.InsertTextBefore(ori_stmt->getBeginLoc(),*insertStr);
+                            }
 
                         }
-
+                        //    if(lhs==nullptr || rhs==nullptr) return false;//防止空指针
+                        //   std::string lhs_class = lhs->getStmtClassName(),rhs_class = rhs->getStmtClassName();//需要考虑运算符左右子语句可能也是二元运算。所以可能需要设计递归函数
                     }
-                    //    if(lhs==nullptr || rhs==nullptr) return false;//防止空指针
-                    //   std::string lhs_class = lhs->getStmtClassName(),rhs_class = rhs->getStmtClassName();//需要考虑运算符左右子语句可能也是二元运算。所以可能需要设计递归函数
                 }
             }
+            
+            std::cout<<"count:"<<count<<std::endl;
+
             if(getFlag(MAIN_BIT))
-                _rewriter.InsertTextBefore(func_decl->getBeginLoc(),initSani(count));
+                _rewriter.InsertTextBefore(func_decl->getBeginLoc(),initSani(last_count,count));
             else
                 _rewriter.InsertTextBefore(func_decl->getBeginLoc(),initSani_shf(bits));
-                
+            
+            last_count=count;
+
+            if(getFlag(MAIN_BIT))
+                find_stdlib(filePath,_rewriter,fir);
         }
         return true;
     }
@@ -772,11 +1128,3 @@ namespace sseq
                     }
 
                     */
-
-
-//方法2： 可以尝试写一个VisitBinaryOperator，再看看能不能通过这个节点找节点获取到对应的函数节点
-
-               //一些API：get_stmt_string输出语句内容，
-               //获取SourceLocation对应的行列：  int line= SM.getPresumedLineNumber(Loc), col = SM.getPresumedColumnNumber(Loc); 
-               // 在loc之后插入str： _rewriter.InsertTextAfter(loc,str);
-               // 遍历子语句直接auto， IF语句获取为true的部分是ifstmt->getThen()， 其他语句具体查询clang的文档。if while这些语句还要考虑条件，也可以查询文档得知如何获取。
