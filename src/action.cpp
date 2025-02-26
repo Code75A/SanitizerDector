@@ -229,6 +229,7 @@ namespace sseq
     //穷举所有需要拆括号（提取SubExpr）的情况，并用SubExpr替换Expr
     void GetSimplifiedExpr(clang::Expr *&hs,const clang::BinaryOperator *&bop,std::string type){
         while(!bop){
+            std::cout<<"nop bop"<<std::endl;
             type=hs->getStmtClassName();
                 
             if(type=="ParenExpr"){
@@ -255,13 +256,6 @@ namespace sseq
                 hs=plhs->getSubExpr();
 
                 std::cout<<Tool::get_stmt_string(hs)<<std::endl;
-            }
-            else if(type=="CallExpr"){
-                for (auto &exp : hs->children() ){
-                        hs=llvm::dyn_cast<clang::Expr>(exp);
-                        //std::cout<<Tool::get_stmt_string(hs)<<std::endl;
-                        break;
-                }
             }
             else
             {
@@ -621,6 +615,7 @@ namespace sseq
     }
     //TODO:注释
     void SeqASTVisitor::judgeDivWithoutUBFuzz(const clang::BinaryOperator *bop,std::string* insertStr,int &count,clang::SourceManager& SM,clang::Rewriter &_rewriter){
+        std::cout<<"judge_insert:"<<std::endl;
         if(bop == nullptr){
             std::cout<<"warnning:encounter nullptr,maybe not a binaryoperator\n";
             return ;
@@ -637,6 +632,8 @@ namespace sseq
 
             _rewriter.InsertTextBefore(lhs->getBeginLoc(),*insertStr);
         }
+        else
+            std::cout<<"\topcode not match\n";
 
         std::cout<<"check lhs:"<<Tool::get_stmt_string(lhs)<<std::endl;
         if(PosDivideZero(Tool::get_stmt_string(lhs))){
@@ -683,7 +680,7 @@ namespace sseq
             if (clang::VarDecl *varDecl = llvm::dyn_cast<clang::VarDecl>(decl)) {
                 clang::Expr * expr = varDecl->getInit();
 
-                if(bop = llvm::dyn_cast<clang::BinaryOperator>(expr));
+                if(!(bop = llvm::dyn_cast<clang::BinaryOperator>(expr)));
                     GetSimplifiedExpr(expr,bop,expr->getStmtClassName());
 
                 std::string* insertStr=new std::string;
@@ -692,12 +689,39 @@ namespace sseq
                 judgeDivWithoutUBFuzz(bop,insertStr,count,SM,_rewriter);
             }
         }
-        else if(bop = llvm::dyn_cast<clang::BinaryOperator>(stmt))
-        {
+        else if(type=="CallExpr"){
+            clang::CallExpr* callexpr = llvm::dyn_cast<clang::CallExpr>(stmt);
+            int numArgs = callexpr->getNumArgs();
+
+            assert(numArgs>=0);
+
+            for(int i = 0; i < numArgs; i++){
+                clang::Expr* arg = callexpr->getArg(i);
+
+                if(PosDivideZero(Tool::get_stmt_string(arg))){
+                    if(!(bop = llvm::dyn_cast<clang::BinaryOperator>(arg)))
+                        GetSimplifiedExpr(arg,bop,stmt->getStmtClassName());
+                    
+                    std::string* insertStr=new std::string;
+                    *insertStr="";
+
+                    judgeDivWithoutUBFuzz(bop,insertStr,count,SM,_rewriter);
+                }
+            }
+        }
+        else{
+            std::cout<<"judge_insert:"<<Tool::get_stmt_string(stmt)<<std::endl;
+
+            clang::Expr* expr = llvm::dyn_cast<clang::Expr>(stmt);
+
+            if(!(bop = llvm::dyn_cast<clang::BinaryOperator>(stmt)))
+                GetSimplifiedExpr(expr,bop,stmt->getStmtClassName());
+
             std::string* insertStr=new std::string;
             *insertStr="";
-
+            
             judgeDivWithoutUBFuzz(bop,insertStr,count,SM,_rewriter);
+            
         }
 
 
@@ -976,7 +1000,7 @@ namespace sseq
             //遍历这个函数中的语句
             if(getFlag(MAIN_BIT) && getFlag(MUT_BIT))
             {
-                const clang::BinaryOperator *bop;
+                const clang::BinaryOperator *bop = nullptr;
                 //clang::BinaryOperator::Opcode op;
                 //clang::Expr *lhs; clang::Expr *rhs;
 
