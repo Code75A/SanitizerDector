@@ -146,7 +146,7 @@ namespace sseq
         return str.find('/')!=-1 || str.find('%')!=-1;
     }
 
-    //TODO:注释
+    //UBFUZZ模式下定位处于if或for内部的目标stmt
     void GetSubExpr(clang::Stmt *&stmt,clang::Stmt *&ori_stmt, std::string type,bool &fir,clang::SourceManager& SM,int &UBFUZZ_line){
         while(type == "ForStmt" || type == "IfStmt"){
             fir=false;
@@ -221,7 +221,7 @@ namespace sseq
             //std::cout<<Tool::get_stmt_string(stmt)<<std::endl;
         }
     }
-    //穷举UBFUZZ mode所有需要拆括号（提取SubExpr）的情况，并用SubExpr替换Expr
+    //UBFUZZ模式下穷举UBFUZZ mode所有需要拆括号（提取SubExpr）的情况，并用SubExpr替换Expr
     //TODO 
     void GetSimplifiedExprUBFuzz(){
 
@@ -276,9 +276,6 @@ namespace sseq
             std::cout<<"warnning:encounter nullptr,maybe not a binaryoperator\n";
             return ;
         }
-
-        //c makes nonsense
-
         clang::BinaryOperator::Opcode op = bop->getOpcode();
         clang::Expr *lhs=bop->getLHS();clang::Expr *rhs=bop->getRHS();
 
@@ -670,6 +667,7 @@ namespace sseq
         }
         return ;
     }
+
     //TODO:注释
     void SeqASTVisitor::JudgeAndInsert(clang::Stmt* &stmt,const clang::BinaryOperator *bop,clang::Rewriter &_rewriter,int &count,clang::SourceManager& SM,std::string type){
         std::cout<<type<<std::endl;
@@ -726,7 +724,6 @@ namespace sseq
 
 
     }
-
     //TODO:注释
     void SeqASTVisitor::LoopChildren(clang::Stmt*& stmt,const clang::BinaryOperator *bop,clang::Rewriter &_rewriter, int &count, clang::SourceManager& SM, std::string type,std::string stmt_string)
     {
@@ -830,7 +827,7 @@ namespace sseq
         }
     }
 
-    //定位UBFUZZ位置并存入line和column
+    //UBFUZZ模式下定位UBFUZZ位置并存入line和column
     void find_UB(int &l,int &c,const std::string& fname){
         std::ifstream file(fname);
         if(!file){
@@ -850,7 +847,7 @@ namespace sseq
         l=-1;
         return;
     }
-    //TODO:注释
+    //shf模式下定位UBFUZZ(INTOP)位置(next line)
     void find_INTOP(std::pair<int,int> &intopl, std::pair<int,int> &intopr,const std::string& fname,int UB_line){
         std::ifstream file(fname);
         if(!file){
@@ -871,31 +868,8 @@ namespace sseq
                 std::istringstream iss(cur);
                 iss>>def>>INTOP_sign>>MUT_VAR;
                 INTOP_R=INTOP_L=INTOP_sign;
-
-                // if(INTOP_sign[6]=='L')
-                //     INTOP_R[6]='R';
-                // else if(INTOP_sign[6]=='R')
-                //     INTOP_L[6]='L';
-                // else{
-                //     std::cout<<"Error: Invalid INTOP form."<<std::endl;
-                //     return;
-                // }
-                // continue;
             }
             else{
-                // int l=cur.find(INTOP_L);
-                // int r=cur.find(INTOP_R);
-                // if( (l!=-1 && r==-1) || (l==-1 && r!=-1)){
-                //     std::cout<<"Error: INTOP_L/R not in the same row."<<std::endl;
-                //     return ;
-                // }
-                // if(l != -1 &&r != -1){
-                //     intopr.first=intopl.first=temp_l;
-                //     intopl.second=l;
-                //     intopr.second=r;
-                //     return;
-                // }
-
                 int c=cur.find(INTOP_sign+")");
                 if(c!=-1){
                     intopl.first=temp_l;
@@ -936,6 +910,7 @@ namespace sseq
     
     int last_count=0;
     int count=0;   
+    
     //WARNING: used in diffrent roles in mut and ubfuzz, may be unhealthy.
     static bool fir=false;//short for 'first' 
 
