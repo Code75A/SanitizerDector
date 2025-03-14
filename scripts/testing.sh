@@ -289,9 +289,10 @@ init() {
 
 if [ "${1}" != "--source-only"  ]; then
     #init
-    testing
+    #testing
     #testOneProgram /home/sd/SanitizerDector/mutants/results/mutantsfiles/a.c
     #testOneProgram /home/sd/SanitizerDector/mutants/mutants241216/mutated_1_tmpkro_pbdo.c
+    testOneProgram /home/sd/SanitizerDector/juliet_dataset/C/testcases/CWE369_Divide_by_Zero/s01/CWE369_Divide_by_Zero__float_connect_socket_01.c
 fi
 
 
