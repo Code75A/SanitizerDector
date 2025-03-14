@@ -146,7 +146,7 @@ namespace sseq
         return str.find('/')!=-1 || str.find('%')!=-1;
     }
 
-    //TODO:注释
+    //UBFUZZ模式下定位处于if或for内部的目标stmt
     void GetSubExpr(clang::Stmt *&stmt,clang::Stmt *&ori_stmt, std::string type,bool &fir,clang::SourceManager& SM,int &UBFUZZ_line){
         while(type == "ForStmt" || type == "IfStmt"){
             fir=false;
@@ -221,7 +221,7 @@ namespace sseq
             //std::cout<<Tool::get_stmt_string(stmt)<<std::endl;
         }
     }
-    //穷举UBFUZZ mode所有需要拆括号（提取SubExpr）的情况，并用SubExpr替换Expr
+    //UBFUZZ模式下穷举UBFUZZ mode所有需要拆括号（提取SubExpr）的情况，并用SubExpr替换Expr
     //TODO 
     void GetSimplifiedExprUBFuzz(){
 
@@ -229,6 +229,7 @@ namespace sseq
     //穷举所有需要拆括号（提取SubExpr）的情况，并用SubExpr替换Expr
     void GetSimplifiedExpr(clang::Expr *&hs,const clang::BinaryOperator *&bop,std::string type){
         while(!bop){
+            std::cout<<"nop bop"<<std::endl;
             type=hs->getStmtClassName();
                 
             if(type=="ParenExpr"){
@@ -256,13 +257,6 @@ namespace sseq
 
                 std::cout<<Tool::get_stmt_string(hs)<<std::endl;
             }
-            else if(type=="CallExpr"){
-                for (auto &exp : hs->children() ){
-                        hs=llvm::dyn_cast<clang::Expr>(exp);
-                        //std::cout<<Tool::get_stmt_string(hs)<<std::endl;
-                        break;
-                }
-            }
             else
             {
                 std::cout<<"base:"<<type<<std::endl;
@@ -282,9 +276,6 @@ namespace sseq
             std::cout<<"warnning:encounter nullptr,maybe not a binaryoperator\n";
             return ;
         }
-
-        //c makes nonsense
-
         clang::BinaryOperator::Opcode op = bop->getOpcode();
         clang::Expr *lhs=bop->getLHS();clang::Expr *rhs=bop->getRHS();
 
@@ -621,6 +612,7 @@ namespace sseq
     }
     //TODO:注释
     void SeqASTVisitor::judgeDivWithoutUBFuzz(const clang::BinaryOperator *bop,std::string* insertStr,int &count,clang::SourceManager& SM,clang::Rewriter &_rewriter){
+        std::cout<<"judge_insert:"<<std::endl;
         if(bop == nullptr){
             std::cout<<"warnning:encounter nullptr,maybe not a binaryoperator\n";
             return ;
@@ -637,6 +629,8 @@ namespace sseq
 
             _rewriter.InsertTextBefore(lhs->getBeginLoc(),*insertStr);
         }
+        else
+            std::cout<<"\topcode not match\n";
 
         std::cout<<"check lhs:"<<Tool::get_stmt_string(lhs)<<std::endl;
         if(PosDivideZero(Tool::get_stmt_string(lhs))){
@@ -673,6 +667,7 @@ namespace sseq
         }
         return ;
     }
+
     //TODO:注释
     void SeqASTVisitor::JudgeAndInsert(clang::Stmt* &stmt,const clang::BinaryOperator *bop,clang::Rewriter &_rewriter,int &count,clang::SourceManager& SM,std::string type){
         std::cout<<type<<std::endl;
@@ -683,7 +678,7 @@ namespace sseq
             if (clang::VarDecl *varDecl = llvm::dyn_cast<clang::VarDecl>(decl)) {
                 clang::Expr * expr = varDecl->getInit();
 
-                if(bop = llvm::dyn_cast<clang::BinaryOperator>(expr));
+                if(!(bop = llvm::dyn_cast<clang::BinaryOperator>(expr)));
                     GetSimplifiedExpr(expr,bop,expr->getStmtClassName());
 
                 std::string* insertStr=new std::string;
@@ -692,17 +687,43 @@ namespace sseq
                 judgeDivWithoutUBFuzz(bop,insertStr,count,SM,_rewriter);
             }
         }
-        else if(bop = llvm::dyn_cast<clang::BinaryOperator>(stmt))
-        {
+        else if(type=="CallExpr"){
+            clang::CallExpr* callexpr = llvm::dyn_cast<clang::CallExpr>(stmt);
+            int numArgs = callexpr->getNumArgs();
+
+            assert(numArgs>=0);
+
+            for(int i = 0; i < numArgs; i++){
+                clang::Expr* arg = callexpr->getArg(i);
+
+                if(PosDivideZero(Tool::get_stmt_string(arg))){
+                    if(!(bop = llvm::dyn_cast<clang::BinaryOperator>(arg)))
+                        GetSimplifiedExpr(arg,bop,stmt->getStmtClassName());
+                    
+                    std::string* insertStr=new std::string;
+                    *insertStr="";
+
+                    judgeDivWithoutUBFuzz(bop,insertStr,count,SM,_rewriter);
+                }
+            }
+        }
+        else{
+            std::cout<<"judge_insert:"<<Tool::get_stmt_string(stmt)<<std::endl;
+
+            clang::Expr* expr = llvm::dyn_cast<clang::Expr>(stmt);
+
+            if(!(bop = llvm::dyn_cast<clang::BinaryOperator>(stmt)))
+                GetSimplifiedExpr(expr,bop,stmt->getStmtClassName());
+
             std::string* insertStr=new std::string;
             *insertStr="";
-
+            
             judgeDivWithoutUBFuzz(bop,insertStr,count,SM,_rewriter);
+            
         }
 
 
     }
-
     //TODO:注释
     void SeqASTVisitor::LoopChildren(clang::Stmt*& stmt,const clang::BinaryOperator *bop,clang::Rewriter &_rewriter, int &count, clang::SourceManager& SM, std::string type,std::string stmt_string)
     {
@@ -806,7 +827,7 @@ namespace sseq
         }
     }
 
-    //定位UBFUZZ位置并存入line和column
+    //UBFUZZ模式下定位UBFUZZ位置并存入line和column
     void find_UB(int &l,int &c,const std::string& fname){
         std::ifstream file(fname);
         if(!file){
@@ -826,7 +847,7 @@ namespace sseq
         l=-1;
         return;
     }
-    //TODO:注释
+    //shf模式下定位UBFUZZ(INTOP)位置(next line)
     void find_INTOP(std::pair<int,int> &intopl, std::pair<int,int> &intopr,const std::string& fname,int UB_line){
         std::ifstream file(fname);
         if(!file){
@@ -847,31 +868,8 @@ namespace sseq
                 std::istringstream iss(cur);
                 iss>>def>>INTOP_sign>>MUT_VAR;
                 INTOP_R=INTOP_L=INTOP_sign;
-
-                // if(INTOP_sign[6]=='L')
-                //     INTOP_R[6]='R';
-                // else if(INTOP_sign[6]=='R')
-                //     INTOP_L[6]='L';
-                // else{
-                //     std::cout<<"Error: Invalid INTOP form."<<std::endl;
-                //     return;
-                // }
-                // continue;
             }
             else{
-                // int l=cur.find(INTOP_L);
-                // int r=cur.find(INTOP_R);
-                // if( (l!=-1 && r==-1) || (l==-1 && r!=-1)){
-                //     std::cout<<"Error: INTOP_L/R not in the same row."<<std::endl;
-                //     return ;
-                // }
-                // if(l != -1 &&r != -1){
-                //     intopr.first=intopl.first=temp_l;
-                //     intopl.second=l;
-                //     intopr.second=r;
-                //     return;
-                // }
-
                 int c=cur.find(INTOP_sign+")");
                 if(c!=-1){
                     intopl.first=temp_l;
@@ -912,6 +910,7 @@ namespace sseq
     
     int last_count=0;
     int count=0;   
+    
     //WARNING: used in diffrent roles in mut and ubfuzz, may be unhealthy.
     static bool fir=false;//short for 'first' 
 
@@ -976,7 +975,7 @@ namespace sseq
             //遍历这个函数中的语句
             if(getFlag(MAIN_BIT) && getFlag(MUT_BIT))
             {
-                const clang::BinaryOperator *bop;
+                const clang::BinaryOperator *bop = nullptr;
                 //clang::BinaryOperator::Opcode op;
                 //clang::Expr *lhs; clang::Expr *rhs;
 
