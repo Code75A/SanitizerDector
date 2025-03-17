@@ -102,9 +102,14 @@ namespace sseq
 
         std::string file_name =
             SM.getFileEntryForID(SM.getMainFileID())->getName().str();
-        //去后缀
+        //去后缀-TODO:Funtion
+        size_t path = file_name.find('/');
+        if(path!=-1)
+            path = file_name.find_last_of('/');
+        file_name = file_name.substr(path+1);
         size_t pos = file_name.find('.');
-        file_name.erase(pos);
+        if(pos!=-1)
+            file_name = file_name.substr(0,pos);
 
         if(mode=="div")
             *insertStr=("("+file_name+"_SaniCatcher"+num+" = "+file_name+"_SaniTestArr"+num+"[("+v_name+" != 0) - 1]),");
@@ -123,9 +128,14 @@ namespace sseq
 
         std::string file_name =
             SM.getFileEntryForID(SM.getMainFileID())->getName().str();
-        //去后缀
+        //去后缀-TODO:Funtion
+        size_t path = file_name.find('/');
+        if(path!=-1)
+            path = file_name.find_last_of('/');
+        file_name = file_name.substr(path+1);
         size_t pos = file_name.find('.');
-        file_name.erase(pos);
+        if(pos!=-1)
+            file_name = file_name.substr(0,pos);
 
         std::string Arr="int "+file_name+"_SaniTestArr"+std::to_string(lst_n)+"[10]";
         for(int i=lst_n+1;i<n;i++){
@@ -147,9 +157,14 @@ namespace sseq
 
         std::string file_name =
             SM.getFileEntryForID(SM.getMainFileID())->getName().str();
-        //去后缀
+        //去后缀-TODO:Funtion
+        size_t path = file_name.find('/');
+        if(path!=-1)
+            path = file_name.find_last_of('/');
+        file_name = file_name.substr(path+1);
         size_t pos = file_name.find('.');
-        file_name.erase(pos);
+        if(pos!=-1)
+            file_name = file_name.substr(0,pos);
 
         std::string num=std::to_string(bits);
         std::string Arr="int "+file_name+"_SaniTestArr["+num+"];\n";
@@ -777,7 +792,7 @@ namespace sseq
 
             for(int i = 0; i < numArgs; i++){
                 clang::Expr* arg = callexpr->getArg(i);
-
+            //暂时无法应对call嵌套call的情况
                 if(PosDivideZero(Tool::get_stmt_string(arg))){
                     if(!(bop = llvm::dyn_cast<clang::BinaryOperator>(arg)))
                         GetSimplifiedExpr(arg,bop,stmt->getStmtClassName());
