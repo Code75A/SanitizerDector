@@ -52,6 +52,30 @@ namespace sseq
         return clang::SourceRange(loc,end);
     }
 
+    //true:str含/或%
+    bool PosDivideZero(std::string str){
+        return str.find('/')!=-1 || str.find('%')!=-1;
+    }
+    //true:是需要调用遍历子语句的Stmt类型
+    bool NeedLoopChildren(std::string type){
+        if(type == "ForStmt" || type == "IfStmt" || type == "CompoundStmt" ||
+         type == "WhileStmt" || type == "SwitchStmt" || type == "LabelStmt")
+            return true;
+        else 
+            return false;
+    }
+    //简化file_name中的路径和后缀 ，获取纯净文件名
+    void SimplifiedFileName(std::string& file_name){
+        size_t path = file_name.find('/');
+        if(path!=-1)
+            path = file_name.find_last_of('/');
+        file_name = file_name.substr(path+1);
+        size_t pos = file_name.find('.');
+        if(pos!=-1)
+            file_name = file_name.substr(0,pos);
+        return ;
+    }
+    
     //获得stmt的range
     clang::SourceRange SeqASTVisitor::get_sourcerange(clang::Stmt *stmt){
         clang::SourceRange SR = stmt->getSourceRange();
@@ -100,16 +124,8 @@ namespace sseq
         
         std::string num=std::to_string(n);
 
-        std::string file_name =
-            SM.getFileEntryForID(SM.getMainFileID())->getName().str();
-        //去后缀-TODO:Funtion
-        size_t path = file_name.find('/');
-        if(path!=-1)
-            path = file_name.find_last_of('/');
-        file_name = file_name.substr(path+1);
-        size_t pos = file_name.find('.');
-        if(pos!=-1)
-            file_name = file_name.substr(0,pos);
+        std::string file_name = SM.getFileEntryForID(SM.getMainFileID())->getName().str();
+        SimplifiedFileName(file_name);
 
         if(mode=="div")
             *insertStr=("("+file_name+"_SaniCatcher"+num+" = "+file_name+"_SaniTestArr"+num+"[("+v_name+" != 0) - 1]),");
@@ -126,16 +142,8 @@ namespace sseq
 
         if(lst_n==n) return "";
 
-        std::string file_name =
-            SM.getFileEntryForID(SM.getMainFileID())->getName().str();
-        //去后缀-TODO:Funtion
-        size_t path = file_name.find('/');
-        if(path!=-1)
-            path = file_name.find_last_of('/');
-        file_name = file_name.substr(path+1);
-        size_t pos = file_name.find('.');
-        if(pos!=-1)
-            file_name = file_name.substr(0,pos);
+        std::string file_name = SM.getFileEntryForID(SM.getMainFileID())->getName().str();
+        SimplifiedFileName(file_name);
 
         std::string Arr="int "+file_name+"_SaniTestArr"+std::to_string(lst_n)+"[10]";
         for(int i=lst_n+1;i<n;i++){
@@ -155,16 +163,8 @@ namespace sseq
     std::string initSani_shf(int bits,clang::SourceManager& SM){
         if(bits==-1) return "";
 
-        std::string file_name =
-            SM.getFileEntryForID(SM.getMainFileID())->getName().str();
-        //去后缀-TODO:Funtion
-        size_t path = file_name.find('/');
-        if(path!=-1)
-            path = file_name.find_last_of('/');
-        file_name = file_name.substr(path+1);
-        size_t pos = file_name.find('.');
-        if(pos!=-1)
-            file_name = file_name.substr(0,pos);
+        std::string file_name = SM.getFileEntryForID(SM.getMainFileID())->getName().str();
+        SimplifiedFileName(file_name);
 
         std::string num=std::to_string(bits);
         std::string Arr="int "+file_name+"_SaniTestArr["+num+"];\n";
@@ -174,17 +174,7 @@ namespace sseq
         return Arr+Cat;
     }
 
-    //true:str含/或%
-    bool PosDivideZero(std::string str){
-        return str.find('/')!=-1 || str.find('%')!=-1;
-    }
-    //true:是需要调用遍历子语句的Stmt类型
-    bool NeedLoopChildren(std::string type){
-        if(type == "ForStmt" || type == "IfStmt" || type == "CompoundStmt" || type == "WhileStmt")
-            return true;
-        else 
-            return false;
-    }
+    
 
     //UBFUZZ模式下定位处于if或for内部的目标stmt
     void GetSubExpr(clang::Stmt *&stmt,clang::Stmt *&ori_stmt, std::string type,bool &fir,clang::SourceManager& SM,int &UBFUZZ_line){
@@ -822,7 +812,7 @@ namespace sseq
 
 
     }
-    //TODO:注释
+    //对于需要循环遍历其子语句的Stmt（NeedLoopChildren）遍历其子语句
     void SeqASTVisitor::LoopChildren(clang::Stmt*& stmt,const clang::BinaryOperator *bop,clang::Rewriter &_rewriter, int &count, clang::SourceManager& SM, std::string type,std::string stmt_string)
     {
         if(type=="ForStmt"){
@@ -842,6 +832,36 @@ namespace sseq
                 }
 
                 clang::Stmt *sbody=FS->getBody();
+                for (auto &s_stmt : sbody->children() ){
+                stmt_string=Tool::get_stmt_string(s_stmt);
+
+                type = s_stmt->getStmtClassName();
+
+                if(NeedLoopChildren(type))
+                    LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string);
+
+                else if(PosDivideZero(stmt_string))
+                    JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName());
+                                    
+                }
+        }
+        else if(type == "WhileStmt"){
+            clang::WhileStmt *WS = llvm::dyn_cast<clang::WhileStmt>(stmt);
+            clang::Stmt *scond=WS->getCond();
+            for(auto &s_stmt : scond->children()){
+                stmt_string=Tool::get_stmt_string(s_stmt);
+
+                type = s_stmt->getStmtClassName();
+
+                if(NeedLoopChildren(type))
+                    LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string);
+
+                else if(PosDivideZero(stmt_string))
+                    JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName());
+                                    
+                }
+
+                clang::Stmt *sbody=WS->getBody();
                 for (auto &s_stmt : sbody->children() ){
                 stmt_string=Tool::get_stmt_string(s_stmt);
 
@@ -918,9 +938,71 @@ namespace sseq
                     LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string);
 
                 else if(PosDivideZero(stmt_string)){
-                    std::cout<<"MayInsert."<<std::endl;
                     JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName());
                 }
+            }
+        }
+        else if(type == "SwitchStmt"){
+            clang::SwitchStmt *SS = llvm::dyn_cast<clang::SwitchStmt>(stmt);
+            clang::Stmt *s_stmt=SS->getCond();
+
+            std::cout<<"switch in."<<std::endl;
+
+            if(s_stmt){
+                std::cout<<"s_stmt yes."<<std::endl;
+                stmt_string=Tool::get_stmt_string(s_stmt);
+
+                type = s_stmt->getStmtClassName();
+
+                if(NeedLoopChildren(type))
+                    LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string);
+
+                else if(PosDivideZero(stmt_string))
+                    JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName());
+            }
+            
+                                   
+            clang::Stmt *sbody=  SS->getBody();
+
+             std::cout<<"sbody"<<std::endl;
+
+            for (clang::SwitchCase* case_stmt = SS->getSwitchCaseList(); case_stmt; case_stmt = case_stmt->getNextSwitchCase() ){
+                stmt_string=Tool::get_stmt_string(case_stmt);
+
+                std::cout<<"case:"<<stmt_string<<std::endl;
+
+                if(clang::CompoundStmt *com = llvm::dyn_cast<clang::CompoundStmt>(case_stmt->getSubStmt())){
+                    clang::Stmt *com_stmt=llvm::dyn_cast<clang::Stmt>(com);
+                    LoopChildren(com_stmt,bop,_rewriter,count,SM,"CompoundStmt",stmt_string);
+                }
+                else{
+                    type = case_stmt->getStmtClassName();
+
+                    stmt_string=Tool::get_stmt_string(case_stmt);
+
+                    if(NeedLoopChildren(type))
+                        LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string);
+
+                    else if(PosDivideZero(stmt_string))
+                        JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName());
+
+                }                      
+            }
+        }
+        else if(type == "LabelStmt"){
+            clang::LabelStmt *LS = llvm::dyn_cast<clang::LabelStmt>(stmt);
+            auto s_stmt = LS->getSubStmt();
+
+            std::cout<<Tool::get_stmt_string(s_stmt)<<std::endl;
+
+            stmt_string=Tool::get_stmt_string(s_stmt);
+
+            type = s_stmt->getStmtClassName();
+
+            if(NeedLoopChildren(type))
+                LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string);
+            else if(PosDivideZero(stmt_string)){
+                JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName());
             }
         }
     }
