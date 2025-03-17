@@ -96,47 +96,65 @@ namespace sseq
     }
 
     //生成第n对SaniCatcher和SaniTestArr,存入insertStr，以mode调控（如果需要添加更多模式，请更改mode）
-    void generateArray(int n,std::string v_name,std::string *insertStr,const std::string mode){
+    void generateArray(int n,std::string v_name,std::string *insertStr,const std::string mode,clang::SourceManager& SM){
         
         std::string num=std::to_string(n);
-        //std::string a="SaniTestArr";
+
+        std::string file_name =
+            SM.getFileEntryForID(SM.getMainFileID())->getName().str();
+        //去后缀
+        size_t pos = file_name.find('.');
+        file_name.erase(pos);
+
         if(mode=="div")
-            *insertStr=("(SaniCatcher"+num+"=SaniTestArr"+num+"[abs("+v_name+")-1]),");
+            *insertStr=("("+file_name+"_SaniCatcher"+num+" = "+file_name+"_SaniTestArr"+num+"[("+v_name+" != 0) - 1]),");
         else if(mode=="shf")
-            *insertStr=("\n\tSaniCatcher=SaniTestArr["+v_name+"];\n");
+            *insertStr=("\n\tSaniCatcher = SaniTestArr["+v_name+"];\n");
         else
             std::cout<<"Error: generateArray encounter invalid mode type."<<std::endl;
         return ;
     }
     //生成第lst_n~n对SaniCatcher和SaniTestArr的定义字符串
-    std::string initSani(int lst_n,int n){
+    std::string initSani(int lst_n,int n,clang::SourceManager& SM){
 
         std::cout<<"Sanicount:"<<n<<std::endl;
 
         if(lst_n==n) return "";
 
-        std::string Arr="int SaniTestArr"+std::to_string(lst_n)+"[10]";
+        std::string file_name =
+            SM.getFileEntryForID(SM.getMainFileID())->getName().str();
+        //去后缀
+        size_t pos = file_name.find('.');
+        file_name.erase(pos);
+
+        std::string Arr="int "+file_name+"_SaniTestArr"+std::to_string(lst_n)+"[10]";
         for(int i=lst_n+1;i<n;i++){
-            Arr+=",SaniTestArr"+std::to_string(i)+"[10]";
+            Arr+=","+file_name+"_SaniTestArr"+std::to_string(i)+"[10]";
         }
         Arr+=";\n";
 
-        std::string Cat="int SaniCatcher"+std::to_string(lst_n);
+        std::string Cat="int "+file_name+"_SaniCatcher"+std::to_string(lst_n);
         for(int i=lst_n+1;i<n;i++){
-            Cat+=",SaniCatcher"+std::to_string(i);
+            Cat+=","+file_name+"_SaniCatcher"+std::to_string(i);
         }
         Cat+=";\n";
 
         return Arr+Cat;
     }
     //生成shift模式下SaniCatcher和SaniTestArr的定义字符串,位移bits位
-    std::string initSani_shf(int bits){
+    std::string initSani_shf(int bits,clang::SourceManager& SM){
         if(bits==-1) return "";
 
-        std::string num=std::to_string(bits);
-        std::string Arr="int SaniTestArr["+num+"];\n";
+        std::string file_name =
+            SM.getFileEntryForID(SM.getMainFileID())->getName().str();
+        //去后缀
+        size_t pos = file_name.find('.');
+        file_name.erase(pos);
 
-        std::string Cat="int SaniCatcher;\n";
+        std::string num=std::to_string(bits);
+        std::string Arr="int "+file_name+"_SaniTestArr["+num+"];\n";
+
+        std::string Cat="int "+file_name+"_SaniCatcher;\n";
 
         return Arr+Cat;
     }
@@ -144,6 +162,13 @@ namespace sseq
     //true:str含/或%
     bool PosDivideZero(std::string str){
         return str.find('/')!=-1 || str.find('%')!=-1;
+    }
+    //true:是需要调用遍历子语句的Stmt类型
+    bool NeedLoopChildren(std::string type){
+        if(type == "ForStmt" || type == "IfStmt" || type == "CompoundStmt" || type == "WhileStmt")
+            return true;
+        else 
+            return false;
     }
 
     //UBFUZZ模式下定位处于if或for内部的目标stmt
@@ -375,7 +400,7 @@ namespace sseq
 
             std::cout<<"Fin_Type:"<<fin_lhs->getType().getAsString()<<std::endl;
 
-            generateArray(1,Tool::get_stmt_string(fin_rhs),insertStr,"shf");
+            generateArray(1,Tool::get_stmt_string(fin_rhs),insertStr,"shf",SM);
 
         }
         
@@ -510,7 +535,7 @@ namespace sseq
             std::cout<<"check"<<SM.getSpellingColumnNumber(rhs->getBeginLoc())<<std::endl;
             std::cout<<"check"<<SM.getSpellingColumnNumber(rhs->getEndLoc())<<std::endl;
             count=1;
-            generateArray(0,Tool::get_stmt_string(rhs),insertStr,"div");
+            generateArray(0,Tool::get_stmt_string(rhs),insertStr,"div",SM);
 
             loc=lhs->getBeginLoc();
         }
@@ -610,7 +635,7 @@ namespace sseq
         }
         return ;
     }
-    //TODO:注释
+    //mut插入模式下（无UBFUZZ），对bop下的AST中的所有可能的/与%进行查询和插入
     void SeqASTVisitor::judgeDivWithoutUBFuzz(const clang::BinaryOperator *bop,std::string* insertStr,int &count,clang::SourceManager& SM,clang::Rewriter &_rewriter){
         std::cout<<"judge_insert:"<<std::endl;
         if(bop == nullptr){
@@ -623,7 +648,7 @@ namespace sseq
 
         if(op == clang::BinaryOperator::Opcode::BO_Div || op == clang::BinaryOperator::Opcode::BO_Rem)
         {
-            generateArray(count++,Tool::get_stmt_string(rhs),insertStr,"div");
+            generateArray(count++,Tool::get_stmt_string(rhs),insertStr,"div",SM);
 
             std::cout<<"count++"<<std::endl;
 
@@ -667,7 +692,64 @@ namespace sseq
         }
         return ;
     }
+    //mut插入模式下（无UBFUZZ），对某CallExpr bop下的AST中的所有可能的/与%进行查询和插入,位置固定在在CallExprHead防止误判为参数
+    void SeqASTVisitor::judgeDivWithoutUBFuzz(const clang::BinaryOperator *bop,std::string* insertStr,int &count,clang::SourceManager& SM,clang::Rewriter &_rewriter,clang::SourceLocation& CallExprHead){
+        std::cout<<"judge_insert_CallExpr:"<<std::endl;
+        if(bop == nullptr){
+            std::cout<<"warnning:encounter nullptr,maybe not a binaryoperator\n";
+            return ;
+        }
+        
+        clang::BinaryOperator::Opcode op = bop->getOpcode();
+        clang::Expr *lhs=bop->getLHS();clang::Expr *rhs=bop->getRHS();
 
+        if(op == clang::BinaryOperator::Opcode::BO_Div || op == clang::BinaryOperator::Opcode::BO_Rem)
+        {
+            generateArray(count++,Tool::get_stmt_string(rhs),insertStr,"div",SM);
+
+            std::cout<<"count++"<<std::endl;
+
+            _rewriter.InsertTextBefore(CallExprHead,*insertStr);
+        }
+        else
+            std::cout<<"\topcode not match\n";
+
+        std::cout<<"check lhs:"<<Tool::get_stmt_string(lhs)<<std::endl;
+        if(PosDivideZero(Tool::get_stmt_string(lhs))){
+            const clang::BinaryOperator *bopl=llvm::dyn_cast<clang::BinaryOperator>(lhs);
+            std::string type;
+
+            GetSimplifiedExpr(lhs,bopl,type);
+            //std::cout<<"SUCC:"<<Tool::get_stmt_string(lhs)<<std::endl;
+            if(bopl){
+                std::string* ninsertStr=new std::string;
+                *ninsertStr="";
+                judgeDivWithoutUBFuzz(bopl,ninsertStr,count,SM,_rewriter,CallExprHead);
+            }
+                
+        }
+
+        std::cout<<"check rhs:"<<Tool::get_stmt_string(rhs)<<std::endl;
+        if(PosDivideZero(Tool::get_stmt_string(rhs))){
+            const clang::BinaryOperator *bopr=llvm::dyn_cast<clang::BinaryOperator>(rhs);
+            std::string type;
+
+            GetSimplifiedExpr(rhs,bopr,type);
+            //std::cout<<"SUCC:"<<Tool::get_stmt_string(rhs)<<std::endl;
+            if(bopr){
+                std::string* ninsertStr=new std::string;
+                *ninsertStr="";
+                judgeDivWithoutUBFuzz(bopr,ninsertStr,count,SM,_rewriter,CallExprHead);
+            }
+            else
+            {
+                std::cout<<"what.";
+            }
+                
+        }
+        return ;
+    }
+    
     //TODO:注释
     void SeqASTVisitor::JudgeAndInsert(clang::Stmt* &stmt,const clang::BinaryOperator *bop,clang::Rewriter &_rewriter,int &count,clang::SourceManager& SM,std::string type){
         std::cout<<type<<std::endl;
@@ -702,8 +784,9 @@ namespace sseq
                     
                     std::string* insertStr=new std::string;
                     *insertStr="";
+                    clang::SourceLocation insertLoc = callexpr->getBeginLoc();
 
-                    judgeDivWithoutUBFuzz(bop,insertStr,count,SM,_rewriter);
+                    judgeDivWithoutUBFuzz(bop,insertStr,count,SM,_rewriter,insertLoc);
                 }
             }
         }
@@ -728,83 +811,83 @@ namespace sseq
     void SeqASTVisitor::LoopChildren(clang::Stmt*& stmt,const clang::BinaryOperator *bop,clang::Rewriter &_rewriter, int &count, clang::SourceManager& SM, std::string type,std::string stmt_string)
     {
         if(type=="ForStmt"){
-                                clang::ForStmt *FS = llvm::dyn_cast<clang::ForStmt>(stmt);
-                                clang::Stmt *scond=FS->getCond();
-                                for(auto &s_stmt : scond->children()){
-                                    stmt_string=Tool::get_stmt_string(s_stmt);
+            clang::ForStmt *FS = llvm::dyn_cast<clang::ForStmt>(stmt);
+            clang::Stmt *scond=FS->getCond();
+            for(auto &s_stmt : scond->children()){
+                stmt_string=Tool::get_stmt_string(s_stmt);
 
-                                    type = s_stmt->getStmtClassName();
+                type = s_stmt->getStmtClassName();
 
-                                    if(type == "ForStmt" || type == "IfStmt" || type == "CompoundStmt" )
-                                        LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string);
+                if(NeedLoopChildren(type))
+                    LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string);
 
-                                    else if(PosDivideZero(stmt_string)){
-                                        JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName());
-                                    }
-                                }
+                else if(PosDivideZero(stmt_string))
+                    JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName());
+                                    
+                }
 
-                                clang::Stmt *sbody=FS->getBody();
-                                for (auto &s_stmt : sbody->children() ){
-                                    stmt_string=Tool::get_stmt_string(s_stmt);
+                clang::Stmt *sbody=FS->getBody();
+                for (auto &s_stmt : sbody->children() ){
+                stmt_string=Tool::get_stmt_string(s_stmt);
 
-                                    type = s_stmt->getStmtClassName();
+                type = s_stmt->getStmtClassName();
 
-                                    if(type == "ForStmt" || type == "IfStmt" || type == "CompoundStmt" )
-                                        LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string);
+                if(NeedLoopChildren(type))
+                    LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string);
 
-                                    else if(PosDivideZero(stmt_string)){
-                                        JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName());
-                                    }
-                                }
-                            }
+                else if(PosDivideZero(stmt_string))
+                    JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName());
+                                    
+                }
+        }
         else if(type == "IfStmt"){
-                            //查询条件
-                                clang::IfStmt *IS = llvm::dyn_cast<clang::IfStmt>(stmt);
+            //查询条件
+            clang::IfStmt *IS = llvm::dyn_cast<clang::IfStmt>(stmt);
                             
-                                clang::Stmt *ibody=IS->getCond();
-                                for (auto &s_stmt : ibody->children() ){
-                                    stmt_string=Tool::get_stmt_string(s_stmt);
+            clang::Stmt *ibody=IS->getCond();
+            for (auto &s_stmt : ibody->children() ){
+                stmt_string=Tool::get_stmt_string(s_stmt);
 
-                                    type = s_stmt->getStmtClassName();
+                type = s_stmt->getStmtClassName();
 
-                                    if(type == "ForStmt" || type == "IfStmt" || type == "CompoundStmt" )
-                                        LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string);
+            if(NeedLoopChildren(type))
+                LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string);
 
-                                    else if(PosDivideZero(stmt_string)){
-                                        JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName());
-                                    }
-                                }
+            else if(PosDivideZero(stmt_string))
+                JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName());
+            
+            }
 
-                                ibody=IS->getThen();
-                                for (auto &s_stmt : ibody->children() ){
-                                    stmt_string=Tool::get_stmt_string(s_stmt);
+            ibody=IS->getThen();
+            for (auto &s_stmt : ibody->children() ){
+                stmt_string=Tool::get_stmt_string(s_stmt);
 
-                                    type = s_stmt->getStmtClassName();
+                type = s_stmt->getStmtClassName();
 
-                                    if(type == "ForStmt" || type == "IfStmt" || type == "CompoundStmt" )
-                                        LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string);
+                if(NeedLoopChildren(type))
+                    LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string);
 
-                                    else if(PosDivideZero(stmt_string)){
-                                        JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName());
-                                    }
-                                }
+                else if(PosDivideZero(stmt_string))
+                    JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName());
+                                    
+            }
                                 
-                                ibody = IS->getElse();
-                                if(ibody){
-                                for (auto &s_stmt : ibody->children() ){
-                                    stmt_string=Tool::get_stmt_string(s_stmt);
+            ibody = IS->getElse();
+            if(ibody){
+            for (auto &s_stmt : ibody->children() ){
+                stmt_string=Tool::get_stmt_string(s_stmt);
 
-                                    type = s_stmt->getStmtClassName();
+                type = s_stmt->getStmtClassName();
 
-                                    if(type == "ForStmt" || type == "IfStmt" || type == "CompoundStmt" )
-                                        LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string);
+                if(NeedLoopChildren(type))
+                    LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string);
 
-                                    else if(PosDivideZero(stmt_string)){
-                                        JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName());
-                                    }
-                                }
-                                }
-                            }
+                else if(PosDivideZero(stmt_string))
+                    JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName());
+                                    
+                }
+            }
+        }
         else if(type == "CompoundStmt")
         {
             clang::CompoundStmt *CS = llvm::dyn_cast<clang::CompoundStmt>(stmt);
@@ -814,15 +897,15 @@ namespace sseq
 
                 stmt_string=Tool::get_stmt_string(s_stmt);
 
-                                    type = s_stmt->getStmtClassName();
+                type = s_stmt->getStmtClassName();
 
-                                    if(type == "ForStmt" || type == "IfStmt" || type == "CompoundStmt" )
-                                        LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string);
+                if(NeedLoopChildren(type))
+                    LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string);
 
-                                    else if(PosDivideZero(stmt_string)){
-                                        std::cout<<"MayInsert."<<std::endl;
-                                        JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName());
-                                    }
+                else if(PosDivideZero(stmt_string)){
+                    std::cout<<"MayInsert."<<std::endl;
+                    JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName());
+                }
             }
         }
     }
@@ -910,7 +993,7 @@ namespace sseq
     
     int last_count=0;
     int count=0;   
-    
+
     //WARNING: used in diffrent roles in mut and ubfuzz, may be unhealthy.
     static bool fir=false;//short for 'first' 
 
@@ -992,7 +1075,7 @@ namespace sseq
                         std::string type = stmt->getStmtClassName();
 
                         
-                        if(type == "ForStmt" || type == "IfStmt" || type == "CompoundStmt" )
+                        if(NeedLoopChildren(type))
                             LoopChildren(stmt,bop,_rewriter,count,SM,type,stmt_string);
                         else
                         {
@@ -1092,9 +1175,9 @@ namespace sseq
             std::cout<<"count:"<<count<<std::endl;
 
             if(getFlag(MAIN_BIT))
-                _rewriter.InsertTextBefore(func_decl->getBeginLoc(),initSani(last_count,count));
+                _rewriter.InsertTextBefore(func_decl->getBeginLoc(),initSani(last_count,count,SM));
             else
-                _rewriter.InsertTextBefore(func_decl->getBeginLoc(),initSani_shf(bits));
+                _rewriter.InsertTextBefore(func_decl->getBeginLoc(),initSani_shf(bits,SM));
             
             last_count=count;
 
