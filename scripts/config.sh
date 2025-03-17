@@ -4,7 +4,7 @@ CLANG=$LLVMPATH/clang-19
 GCC=gcc
 ASAN_SYMBOLIZER_PATH=$LLVMPATH/llvm-symbolizer
 UBGenHome=/home/sd
-MutantHome=/home/sd/SanitizerDector/juliet_dataset/C/testcases/CWE369_Divide_by_Zero/s01
+MutantHome=/home/sd/SanitizerDector/juliet_dataset/C/testcases/CWE369_Divide_by_Zero/s02
 SDHOME=$UBGenHome/SanitizerDector
 SSEQ=$SDHOME/build/sseq
 CSMITH_HOME=/home/sd/SanitizerDector/csmith
@@ -14,3 +14,4 @@ ReduceOUTPUTFILE=$SDHOME/creducetemp/result.txt
 FilterFPOUTPUTFILE=/home/sd/SanitizerDector/mutants/results/O0/result241206_FP1.txt
 OptLevel="1"
 reduceOptLevel="0"
+
