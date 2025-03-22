@@ -56,6 +56,10 @@ namespace sseq
     bool PosDivideZero(std::string str){
         return str.find('/')!=-1 || str.find('%')!=-1;
     }
+    //true:str含>>或<<
+    bool PosShfOverflow(std::string str){
+        return str.find("<<")!=-1 || str.find(">>")!=-1;
+    }
     //true:是需要调用遍历子语句的Stmt类型
     bool NeedLoopChildren(std::string type){
         if(type == "ForStmt" || type == "IfStmt" || type == "CompoundStmt" ||
@@ -130,7 +134,7 @@ namespace sseq
         if(mode=="div")
             *insertStr=("("+file_name+"_SaniCatcher"+num+" = "+file_name+"_SaniTestArr"+num+"[("+v_name+" != 0) - 1]),");
         else if(mode=="shf")
-            *insertStr=("\n\tSaniCatcher = SaniTestArr["+v_name+"];\n");
+            *insertStr=("("+file_name+"_SaniCatcher"+num+" = "+file_name+"_SaniTestArr"+num+"["+v_name+"]),");
         else
             std::cout<<"Error: generateArray encounter invalid mode type."<<std::endl;
         return ;
@@ -160,16 +164,16 @@ namespace sseq
         return Arr+Cat;
     }
     //生成shift模式下SaniCatcher和SaniTestArr的定义字符串,位移bits位
-    std::string initSani_shf(int bits,clang::SourceManager& SM){
+    std::string initSani_shf(int count, int bits,clang::SourceManager& SM){
         if(bits==-1) return "";
 
         std::string file_name = SM.getFileEntryForID(SM.getMainFileID())->getName().str();
         SimplifiedFileName(file_name);
 
         std::string num=std::to_string(bits);
-        std::string Arr="int "+file_name+"_SaniTestArr["+num+"];\n";
+        std::string Arr="int "+file_name+"_SaniTestArr"+std::to_string(count)+"["+num+"];\n";
 
-        std::string Cat="int "+file_name+"_SaniCatcher;\n";
+        std::string Cat="int "+file_name+"_SaniCatcher"+std::to_string(count)+";\n";
 
         return Arr+Cat;
     }
@@ -300,7 +304,7 @@ namespace sseq
         return ;
     }
     
-    //TODO:注释
+    //UBFUZZ-Shf模式下遍历找到UBFUZZ的位置并插装
     void SeqASTVisitor::judgeShf(const clang::BinaryOperator *bop,const clang::BinaryOperator* last_bop,std::string* insertStr,clang::SourceManager& SM,int& bits){
         if(bop == nullptr){
             std::cout<<"warnning:encounter nullptr,maybe not a binaryoperator\n";
@@ -524,7 +528,7 @@ namespace sseq
         return ;
 
     }
-    //TODO:注释
+    //UBFUZZ-Div模式下遍历找到UBFUZZ的位置并插装
     void SeqASTVisitor::judgeDiv(const clang::BinaryOperator *bop,std::string* insertStr,int &count,clang::SourceManager& SM,const int c,clang::SourceLocation &loc){
         if(bop == nullptr){
             std::cout<<"warnning:encounter nullptr,maybe not a binaryoperator\n";
@@ -673,8 +677,7 @@ namespace sseq
                 std::string* ninsertStr=new std::string;
                 *ninsertStr="";
                 judgeDivWithoutUBFuzz(bopl,ninsertStr,count,SM,_rewriter);
-            }
-                
+            } 
         }
 
         std::cout<<"check rhs:"<<Tool::get_stmt_string(rhs)<<std::endl;
@@ -754,9 +757,129 @@ namespace sseq
         }
         return ;
     }
-    
     //TODO:注释
-    void SeqASTVisitor::JudgeAndInsert(clang::Stmt* &stmt,const clang::BinaryOperator *bop,clang::Rewriter &_rewriter,int &count,clang::SourceManager& SM,std::string type){
+    void SeqASTVisitor::judgeShfWithoutUBFuzz(const clang::BinaryOperator *bop,std::string* insertStr,int &count,clang::SourceManager& SM,clang::Rewriter &_rewriter,clang::SourceLocation& DefHead){
+        if(bop == nullptr){
+            std::cout<<"warnning:encounter nullptr,maybe not a binaryoperator\n";
+            return ;
+        }
+        clang::BinaryOperator::Opcode op = bop->getOpcode();
+        clang::Expr *lhs=bop->getLHS();clang::Expr *rhs=bop->getRHS();
+
+        if(op == clang::BinaryOperator::Opcode::BO_Shl || op == clang::BinaryOperator::Opcode::BO_Shr){
+            generateArray(count,Tool::get_stmt_string(rhs),insertStr,"shf",SM);
+
+            std::cout<<"count++"<<std::endl;
+
+            _rewriter.InsertTextBefore(lhs->getBeginLoc(),*insertStr);
+            
+            clang::QualType type = lhs->getType();
+            const clang::Type *ty = type.getTypePtr();
+            unsigned bitWidth = _ctx->getTypeSize(ty);
+
+            _rewriter.InsertTextBefore(DefHead,initSani_shf(count,bitWidth,SM));
+
+            count++;
+        }
+        else
+            std::cout<<"\topcode not match\n";
+
+        if(PosShfOverflow(Tool::get_stmt_string(lhs))){
+            std::cout<<"check lhs:"<<Tool::get_stmt_string(lhs)<<std::endl;
+            
+            const clang::BinaryOperator *bopl=llvm::dyn_cast<clang::BinaryOperator>(lhs);
+            std::string type;
+
+            GetSimplifiedExpr(lhs,bopl,type);
+
+            if(bopl){
+                std::string* ninsertStr=new std::string;
+                *ninsertStr="";
+                judgeShfWithoutUBFuzz(bopl,ninsertStr,count,SM,_rewriter,DefHead);
+            }
+            
+        }
+        
+        if(PosShfOverflow(Tool::get_stmt_string(rhs))){
+            std::cout<<"check rhs:"<<Tool::get_stmt_string(rhs)<<std::endl;
+
+            const clang::BinaryOperator *bopr=llvm::dyn_cast<clang::BinaryOperator>(rhs);
+            std::string type;
+
+            if(bopr)
+            {
+                std::string* ninsertStr=new std::string;
+                *ninsertStr="";
+                judgeShfWithoutUBFuzz(bopr,ninsertStr,count,SM,_rewriter,DefHead);
+            }
+        }
+        
+        return ;
+
+    }
+    //TODO:注释
+    void SeqASTVisitor::judgeShfWithoutUBFuzz(const clang::BinaryOperator *bop,std::string* insertStr,int &count,clang::SourceManager& SM,clang::Rewriter &_rewriter,clang::SourceLocation& DefHead,clang::SourceLocation& CallExprHead){
+        std::cout<<"judge_insert_CallExpr:"<<std::endl;
+        if(bop == nullptr){
+            std::cout<<"warnning:encounter nullptr,maybe not a binaryoperator\n";
+            return ;
+        }
+        
+        clang::BinaryOperator::Opcode op = bop->getOpcode();
+        clang::Expr *lhs=bop->getLHS();clang::Expr *rhs=bop->getRHS();
+
+        if(op == clang::BinaryOperator::Opcode::BO_Shr || op == clang::BinaryOperator::Opcode::BO_Shl)
+        {
+            generateArray(count++,Tool::get_stmt_string(rhs),insertStr,"shf",SM);
+
+            std::cout<<"count++"<<std::endl;
+
+            _rewriter.InsertTextBefore(CallExprHead,*insertStr);
+
+            clang::QualType type = lhs->getType();
+            const clang::Type *ty = type.getTypePtr();
+            unsigned bitWidth = _ctx->getTypeSize(ty);
+
+            _rewriter.InsertTextBefore(DefHead,initSani_shf(count,bitWidth,SM));
+
+            count++;
+        }
+        else
+            std::cout<<"\topcode not match\n";
+
+        std::cout<<"check lhs:"<<Tool::get_stmt_string(lhs)<<std::endl;
+        if(PosDivideZero(Tool::get_stmt_string(lhs))){
+            const clang::BinaryOperator *bopl=llvm::dyn_cast<clang::BinaryOperator>(lhs);
+            std::string type;
+
+            GetSimplifiedExpr(lhs,bopl,type);
+            //std::cout<<"SUCC:"<<Tool::get_stmt_string(lhs)<<std::endl;
+            if(bopl){
+                std::string* ninsertStr=new std::string;
+                *ninsertStr="";
+                judgeShfWithoutUBFuzz(bopl,ninsertStr,count,SM,_rewriter,CallExprHead);
+            }
+                
+        }
+
+        std::cout<<"check rhs:"<<Tool::get_stmt_string(rhs)<<std::endl;
+        if(PosDivideZero(Tool::get_stmt_string(rhs))){
+            const clang::BinaryOperator *bopr=llvm::dyn_cast<clang::BinaryOperator>(rhs);
+            std::string type;
+
+            GetSimplifiedExpr(rhs,bopr,type);
+            //std::cout<<"SUCC:"<<Tool::get_stmt_string(rhs)<<std::endl;
+            if(bopr){
+                std::string* ninsertStr=new std::string;
+                *ninsertStr="";
+                judgeShfWithoutUBFuzz(bopr,ninsertStr,count,SM,_rewriter,CallExprHead);
+            }
+                
+        }
+        return ;
+    }
+    //TODO:注释
+    void SeqASTVisitor::JudgeAndInsert(clang::Stmt* &stmt,const clang::BinaryOperator *bop,clang::Rewriter &_rewriter,int &count,clang::SourceManager& SM,std::string type,std::string mode,clang::SourceLocation& DefHead){
         std::cout<<type<<std::endl;
         if(type=="DeclStmt"){
             clang::DeclStmt *phs = llvm::dyn_cast<clang::DeclStmt>(stmt);
@@ -771,7 +894,12 @@ namespace sseq
                 std::string* insertStr=new std::string;
                 *insertStr="";
 
-                judgeDivWithoutUBFuzz(bop,insertStr,count,SM,_rewriter);
+                if(mode == "div")
+                    judgeDivWithoutUBFuzz(bop,insertStr,count,SM,_rewriter);
+                else if(mode == "shf")
+                    judgeShfWithoutUBFuzz(bop,insertStr,count,SM,_rewriter,DefHead);
+                else
+                    std::cout<<"Error:Invalid J&I mode."<<std::endl;
             }
         }
         else if(type=="CallExpr"){
@@ -791,7 +919,12 @@ namespace sseq
                     *insertStr="";
                     clang::SourceLocation insertLoc = callexpr->getBeginLoc();
 
-                    judgeDivWithoutUBFuzz(bop,insertStr,count,SM,_rewriter,insertLoc);
+                    if(mode == "div")
+                        judgeDivWithoutUBFuzz(bop,insertStr,count,SM,_rewriter);
+                    else if(mode == "shf")
+                        judgeShfWithoutUBFuzz(bop,insertStr,count,SM,_rewriter,DefHead);
+                    else
+                        std::cout<<"Error:Invalid J&I mode."<<std::endl;
                 }
             }
         }
@@ -806,14 +939,19 @@ namespace sseq
             std::string* insertStr=new std::string;
             *insertStr="";
             
-            judgeDivWithoutUBFuzz(bop,insertStr,count,SM,_rewriter);
+            if(mode == "div")
+                judgeDivWithoutUBFuzz(bop,insertStr,count,SM,_rewriter);
+            else if(mode == "shf")
+                judgeShfWithoutUBFuzz(bop,insertStr,count,SM,_rewriter,DefHead);
+            else
+                std::cout<<"Error:Invalid J&I mode."<<std::endl;
             
         }
 
 
     }
     //对于需要循环遍历其子语句的Stmt（NeedLoopChildren）遍历其子语句
-    void SeqASTVisitor::LoopChildren(clang::Stmt*& stmt,const clang::BinaryOperator *bop,clang::Rewriter &_rewriter, int &count, clang::SourceManager& SM, std::string type,std::string stmt_string)
+    void SeqASTVisitor::LoopChildren(clang::Stmt*& stmt,const clang::BinaryOperator *bop,clang::Rewriter &_rewriter, int &count, clang::SourceManager& SM, std::string type,std::string stmt_string,std::string mode,clang::SourceLocation& DefHead)
     {
         if(type=="ForStmt"){
             clang::ForStmt *FS = llvm::dyn_cast<clang::ForStmt>(stmt);
@@ -824,10 +962,10 @@ namespace sseq
                 type = s_stmt->getStmtClassName();
 
                 if(NeedLoopChildren(type))
-                    LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string);
+                    LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string,mode,DefHead);
 
                 else if(PosDivideZero(stmt_string))
-                    JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName());
+                    JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),mode,DefHead);
                                     
                 }
 
@@ -838,10 +976,10 @@ namespace sseq
                 type = s_stmt->getStmtClassName();
 
                 if(NeedLoopChildren(type))
-                    LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string);
+                    LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string,mode,DefHead);
 
                 else if(PosDivideZero(stmt_string))
-                    JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName());
+                    JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),mode,DefHead);
                                     
                 }
         }
@@ -854,10 +992,10 @@ namespace sseq
                 type = s_stmt->getStmtClassName();
 
                 if(NeedLoopChildren(type))
-                    LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string);
+                    LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string,mode,DefHead);
 
                 else if(PosDivideZero(stmt_string))
-                    JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName());
+                    JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),mode,DefHead);
                                     
                 }
 
@@ -868,10 +1006,10 @@ namespace sseq
                 type = s_stmt->getStmtClassName();
 
                 if(NeedLoopChildren(type))
-                    LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string);
+                    LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string,mode,DefHead);
 
                 else if(PosDivideZero(stmt_string))
-                    JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName());
+                    JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),mode,DefHead);
                                     
                 }
         }
@@ -886,10 +1024,10 @@ namespace sseq
                 type = s_stmt->getStmtClassName();
 
             if(NeedLoopChildren(type))
-                LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string);
+                LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string,mode,DefHead);
 
             else if(PosDivideZero(stmt_string))
-                JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName());
+                JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),mode,DefHead);
             
             }
 
@@ -900,10 +1038,10 @@ namespace sseq
                 type = s_stmt->getStmtClassName();
 
                 if(NeedLoopChildren(type))
-                    LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string);
+                    LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string,mode,DefHead);
 
                 else if(PosDivideZero(stmt_string))
-                    JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName());
+                    JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),mode,DefHead);
                                     
             }
                                 
@@ -915,10 +1053,10 @@ namespace sseq
                 type = s_stmt->getStmtClassName();
 
                 if(NeedLoopChildren(type))
-                    LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string);
+                    LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string,mode,DefHead);
 
                 else if(PosDivideZero(stmt_string))
-                    JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName());
+                    JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),mode,DefHead);
                                     
                 }
             }
@@ -935,10 +1073,10 @@ namespace sseq
                 type = s_stmt->getStmtClassName();
 
                 if(NeedLoopChildren(type))
-                    LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string);
+                    LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string,mode,DefHead);
 
                 else if(PosDivideZero(stmt_string)){
-                    JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName());
+                    JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),mode,DefHead);
                 }
             }
         }
@@ -955,10 +1093,10 @@ namespace sseq
                 type = s_stmt->getStmtClassName();
 
                 if(NeedLoopChildren(type))
-                    LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string);
+                    LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string,mode,DefHead);
 
                 else if(PosDivideZero(stmt_string))
-                    JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName());
+                    JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),mode,DefHead);
             }
             
                                    
@@ -973,7 +1111,7 @@ namespace sseq
 
                 if(clang::CompoundStmt *com = llvm::dyn_cast<clang::CompoundStmt>(case_stmt->getSubStmt())){
                     clang::Stmt *com_stmt=llvm::dyn_cast<clang::Stmt>(com);
-                    LoopChildren(com_stmt,bop,_rewriter,count,SM,"CompoundStmt",stmt_string);
+                    LoopChildren(com_stmt,bop,_rewriter,count,SM,"CompoundStmt",stmt_string,mode,DefHead);
                 }
                 else{
                     type = case_stmt->getStmtClassName();
@@ -981,10 +1119,10 @@ namespace sseq
                     stmt_string=Tool::get_stmt_string(case_stmt);
 
                     if(NeedLoopChildren(type))
-                        LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string);
+                        LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string,mode,DefHead);
 
                     else if(PosDivideZero(stmt_string))
-                        JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName());
+                        JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),mode,DefHead);
 
                 }                      
             }
@@ -1000,9 +1138,9 @@ namespace sseq
             type = s_stmt->getStmtClassName();
 
             if(NeedLoopChildren(type))
-                LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string);
+                LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string,mode,DefHead);
             else if(PosDivideZero(stmt_string)){
-                JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName());
+                JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),mode,DefHead);
             }
         }
     }
@@ -1136,7 +1274,7 @@ namespace sseq
         int bits=-1;
 
         //--------shift redirection--------        
-        if(!getFlag(MAIN_BIT)){
+        if(!getFlag(MAIN_BIT) && !getFlag(MUT_BIT)){
             find_INTOP(intopl_loc,intopr_loc,filePath,UBFUZZ_line);
             UBFUZZ_line=intopl_loc.first;
         }
@@ -1170,35 +1308,45 @@ namespace sseq
                     {
                         std::cout<<"stmt:"<<stmt_string<<std::endl;
                         std::string type = stmt->getStmtClassName();
-
+                        clang::SourceLocation defHead = func_decl->getBeginLoc();
                         
                         if(NeedLoopChildren(type))
-                            LoopChildren(stmt,bop,_rewriter,count,SM,type,stmt_string);
+                            LoopChildren(stmt,bop,_rewriter,count,SM,type,stmt_string,"div",defHead);
                         else
-                        {
-                            JudgeAndInsert(stmt,bop,_rewriter,count,SM,stmt->getStmtClassName());     
-                        }
-                                // if(getFlag(OPT_BIT)){
-                                //     std::cout<<"mode: print"<<std::endl;
-
-                                //     clang::SourceLocation loc=ori_stmt->getBeginLoc();
-                                //     judgePrint(bop,SM,UBFUZZ_column,loc);
-                                            
-                                //     *insertStr=" fprintf(stderr, \"ACT_CHECK_CODE\") &&";
-                                //     if(loc!=ori_stmt->getBeginLoc())
-                                //         _rewriter.InsertTextBefore(loc,*insertStr);
-                                //     else
-                                //         _rewriter.InsertTextBefore(ori_stmt->getBeginLoc(),"fprintf(stderr, \"ACT_CHECK_CODE\");\n");
-                                // } ?
+                            JudgeAndInsert(stmt,bop,_rewriter,count,SM,stmt->getStmtClassName(),"div",defHead);     
                     }
                     else continue;
                 }
 
             }
-            else
-            {
+            else if(!getFlag(MAIN_BIT) && getFlag(MUT_BIT)){
+                std::cout<<"mode: Shf-Mut"<<std::endl;
+
+                const clang::BinaryOperator *bop = nullptr;
                 for (auto &stmt : body_stmt->children())
                 {
+                    auto ori_stmt = stmt;
+                    clang::SourceLocation insert_loc = ori_stmt->getBeginLoc();
+
+                    std::string stmt_string=Tool::get_stmt_string(stmt);
+                    
+                    if(PosShfOverflow(stmt_string))
+                    {
+                        std::cout<<"stmt:"<<stmt_string<<std::endl;
+                        std::string type = stmt->getStmtClassName();
+                        clang::SourceLocation defHead = func_decl->getBeginLoc();
+                        
+                        if(NeedLoopChildren(type))
+                            LoopChildren(stmt,bop,_rewriter,count,SM,type,stmt_string,"shf",defHead);
+                        else
+                            JudgeAndInsert(stmt,bop,_rewriter,count,SM,stmt->getStmtClassName(),"shf",defHead);     
+                        
+                    }
+                    else continue;
+                }
+            }
+            else{
+                for (auto &stmt : body_stmt->children()){
                     //定位到含有/*UBFUZZ*/的那行Stmt
                     std::cout<<"checkline:"<<SM.getSpellingLineNumber(stmt->getEndLoc());
                     
@@ -1273,8 +1421,8 @@ namespace sseq
 
             if(getFlag(MAIN_BIT))
                 _rewriter.InsertTextBefore(func_decl->getBeginLoc(),initSani(last_count,count,SM));
-            else
-                _rewriter.InsertTextBefore(func_decl->getBeginLoc(),initSani_shf(bits,SM));
+            else if(!getFlag(MUT_BIT))
+                _rewriter.InsertTextBefore(func_decl->getBeginLoc(),initSani_shf(count,bits,SM));
             
             last_count=count;
 
