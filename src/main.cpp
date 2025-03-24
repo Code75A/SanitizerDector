@@ -80,6 +80,16 @@ int main(int argc, const char **argv)
     else if(mode=="shf"){
         vflags[MAIN_BIT]=0;
         mode="shf";
+
+        if(argc>=4)
+            opt_set=argv[3];
+        if(argc>=5)
+            ubfuzz_set=argv[4];
+
+        if(ubfuzz_set=="mut")
+            vflags[MUT_BIT]=1;
+        else 
+            vflags[MUT_BIT]=0;
     }
     else{
         vflags[MAIN_BIT]=1;
