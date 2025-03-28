@@ -920,9 +920,9 @@ namespace sseq
                     clang::SourceLocation insertLoc = callexpr->getBeginLoc();
 
                     if(mode == "div")
-                        judgeDivWithoutUBFuzz(bop,insertStr,count,SM,_rewriter);
+                        judgeDivWithoutUBFuzz(bop,insertStr,count,SM,_rewriter,insertLoc);
                     else if(mode == "shf")
-                        judgeShfWithoutUBFuzz(bop,insertStr,count,SM,_rewriter,DefHead);
+                        judgeShfWithoutUBFuzz(bop,insertStr,count,SM,_rewriter,DefHead,insertLoc);
                     else
                         std::cout<<"Error:Invalid J&I mode."<<std::endl;
                 }
