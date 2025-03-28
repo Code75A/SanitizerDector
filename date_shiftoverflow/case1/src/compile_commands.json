@@ -1,0 +1,17 @@
+[
+    {
+        "arguments": [
+            "clang",
+            "-c",
+            "-g",
+            "-O0",
+            "-Wall",
+            "-I/home/sd/SanitizerDector/date_shiftoverflow/case1/src/include",
+            "/home/sd/SanitizerDector/date_shiftoverflow/case1/src/bit_shift.c",
+            "-o",
+            "test.o.bc",
+        ],
+        "directory": "/home/sd/SanitizerDector/date_shiftoverflow/case1/src",
+        "file": "/home/sd/SanitizerDector/date_shiftoverflow/case1/src/bit_shift.c"
+    },
+]
