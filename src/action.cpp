@@ -1069,6 +1069,7 @@ namespace sseq
                 std::cout<<Tool::get_stmt_string(s_stmt)<<std::endl;
 
                 stmt_string=Tool::get_stmt_string(s_stmt);
+                std::cout<<"CompountStmt::"<<stmt_string<<std::endl;
 
                 type = s_stmt->getStmtClassName();
 
@@ -1114,15 +1115,17 @@ namespace sseq
                     LoopChildren(com_stmt,bop,_rewriter,count,SM,"CompoundStmt",stmt_string,mode,DefHead);
                 }
                 else{
-                    type = case_stmt->getStmtClassName();
+                    clang::Stmt *com_stmt=llvm::dyn_cast<clang::Stmt>(case_stmt->getSubStmt());
 
-                    stmt_string=Tool::get_stmt_string(case_stmt);
+                    type = com_stmt->getStmtClassName();
+
+                    stmt_string=Tool::get_stmt_string(com_stmt);
 
                     if(NeedLoopChildren(type))
-                        LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string,mode,DefHead);
+                        LoopChildren(com_stmt,bop,_rewriter,count,SM,com_stmt->getStmtClassName(),stmt_string,mode,DefHead);
 
                     else if(PosDivideZero(stmt_string))
-                        JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),mode,DefHead);
+                        JudgeAndInsert(com_stmt,bop,_rewriter,count,SM,com_stmt->getStmtClassName(),mode,DefHead);
 
                 }                      
             }
