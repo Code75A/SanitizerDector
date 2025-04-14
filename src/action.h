@@ -10,10 +10,14 @@
 #include "seq_info.h"
 #include "tool.h"
 
-#define FLAG_WIDTH 3
-#define MAIN_BIT 0
+#include "clang/Lex/Lexer.h"
+#include "clang/Basic/LangOptions.h"
+
+#define FLAG_WIDTH 4
+#define DIV_BIT 0
 #define OPT_BIT 1
 #define MUT_BIT 2
+#define NULL_BIT 3
 
 namespace sseq
 {
@@ -60,6 +64,8 @@ class SeqASTVisitor : public clang::RecursiveASTVisitor<SeqASTVisitor>
     void judgeShfWithoutUBFuzz(const clang::BinaryOperator *bop,std::string* insertStr,int &count,clang::SourceManager& SM,clang::Rewriter &_rewriter,clang::SourceLocation& DefHead,clang::SourceLocation& CallExprHead);
 
     void JudgeAndInsert(clang::Stmt* &stmt,const clang::BinaryOperator *bop,clang::Rewriter &_rewriter,int &count,clang::SourceManager& SM,std::string type,std::string mode,clang::SourceLocation& DefHead);
+    void JudgeAndPtrTrack(clang::Stmt* stmt,clang::SourceManager& SM,clang::SourceLocation& DefHead);
+    
     void LoopChildren(clang::Stmt*& stmt,const clang::BinaryOperator *bop,clang::Rewriter &_rewriter, int &count, clang::SourceManager& SM, std::string type,std::string stmt_string,std::string mode,clang::SourceLocation& DefHead);
 
 };
@@ -106,10 +112,13 @@ class SeqFrontendAction : public clang::ASTFrontendAction
             SM.getFileEntryForID(SM.getMainFileID())->getName().str();
 
         //更改后缀
-        if(seq_info.vflags[MAIN_BIT]){
+        if(seq_info.vflags[DIV_BIT]){
           if(seq_info.vflags[OPT_BIT])
             replace_suffix(file_name, "_print");
           else replace_suffix(file_name, "_div");
+        }
+        else if (seq_info.vflags[NULL_BIT]){
+          replace_suffix(file_name, "_null");
         }
         else
           replace_suffix(file_name, "_shf");

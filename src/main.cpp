@@ -51,34 +51,35 @@ int main(int argc, const char **argv)
 
     llvm::BitVector vflags(FLAG_WIDTH,false);
 
-    //arg[2]:mode           div/shf
+    //arg[2]:mode           div/shf/null
     //arg[3]:opt_set        print/[other]
     //arg[4]:ubfuzz_set     mut/[other]
 
+    vflags[NULL_BIT] = 0;
 
     if(argc>=3)
         mode=argv[2];
 
     if(mode=="div"){
-        vflags[MAIN_BIT]=1;
+        vflags[DIV_BIT]=1;
         if(argc>=4)
             opt_set=argv[3];
         if(argc>=5)
             ubfuzz_set=argv[4];
 
-        if(opt_set=="print")
+        if(opt_set == "print")
             vflags[OPT_BIT]=1;
         else
             vflags[OPT_BIT]=0;
         
-        if(ubfuzz_set=="mut")
+        if(ubfuzz_set == "mut")
             vflags[MUT_BIT]=1;
         else 
             vflags[MUT_BIT]=0;
 
     }
-    else if(mode=="shf"){
-        vflags[MAIN_BIT]=0;
+    else if(mode == "shf"){
+        vflags[DIV_BIT]=0;
         mode="shf";
 
         if(argc>=4)
@@ -91,8 +92,14 @@ int main(int argc, const char **argv)
         else 
             vflags[MUT_BIT]=0;
     }
+    else if(mode == "null"){
+        vflags[NULL_BIT] = 1;
+
+    for(int i = DIV_BIT; i < NULL_BIT ; i++)
+        vflags[i] = 0;
+    }
     else{
-        vflags[MAIN_BIT]=1;
+        vflags[DIV_BIT]=1;
         mode="div";
     }
 
