@@ -1,6 +1,10 @@
 #include "action.h"
 namespace sseq
 {
+    // -----------null模式全局变量-----------
+    std::unordered_set<std::string> w_NameList;
+    std::string global_current_func_name;
+    // -----------null模式全局变量-----------
 
     bool SeqASTVisitor::isInSystemHeader(const clang::SourceLocation &loc) {
         auto &SM = _ctx->getSourceManager();
@@ -52,6 +56,8 @@ namespace sseq
         return clang::SourceRange(loc,end);
     }
 
+    // ----------------------
+
     //true:str含/或%
     bool PosDivideZero(std::string str){
         return str.find('/')!=-1 || str.find('%')!=-1;
@@ -68,6 +74,9 @@ namespace sseq
         else 
             return false;
     }
+
+    //  ---------------------
+
     //简化file_name中的路径和后缀 ，获取纯净文件名
     void SimplifiedFileName(std::string& file_name){
         size_t path = file_name.find('/');
@@ -143,7 +152,7 @@ namespace sseq
         SimplifiedFileName(file_name);
 
         typestr = strTrans(typestr);
-        *insertStr=";"+file_name+"_"+v_name+"_copy_"+typestr+" = &"+v_name;
+        *insertStr=";"+file_name+"_"+global_current_func_name+"_"+v_name+"_copy_"+typestr+" = &"+v_name;
 
         return ;
     }
@@ -153,7 +162,7 @@ namespace sseq
         SimplifiedFileName(file_name);
 
         typestr = strTrans(typestr);
-        *insertStr=";"+file_name+"_"+v_name+"_copy_"+typestr+"_Catcher"+"= *"+file_name+"_"+v_name+"_copy_"+typestr;
+        *insertStr=";"+file_name+"_"+global_current_func_name+"_"+v_name+"_copy_"+typestr+"_Catcher"+"= *"+file_name+"_"+global_current_func_name+"_"+v_name+"_copy_"+typestr;
 
         return ;
     }
@@ -178,7 +187,7 @@ namespace sseq
         SimplifiedFileName(file_name);
 
         std::string norm_typestr=strTrans(typestr);
-        *insertStr=";"+typestr+"* "+file_name+"_"+v_name+"_copy_"+norm_typestr;
+        *insertStr=";"+typestr+"* "+file_name+"_"+global_current_func_name+"_"+v_name+"_copy_"+norm_typestr;
 
         return ;
     }
@@ -188,7 +197,7 @@ namespace sseq
         SimplifiedFileName(file_name);
 
         std::string norm_typestr=strTrans(typestr);
-        *insertStr = typestr+" "+file_name+"_"+v_name+"_copy_"+norm_typestr+"_Catcher;\n";
+        *insertStr = typestr+" "+file_name+"_"+global_current_func_name+"_"+v_name+"_copy_"+norm_typestr+"_Catcher;\n";
 
         return ;
     }
@@ -1035,7 +1044,6 @@ namespace sseq
 
     }
 
-    std::unordered_set<std::string> w_NameList;
     //TODO
     void SeqASTVisitor::JudgeAndPtrTrack(clang::Stmt* stmt, clang::SourceManager& SM,clang::SourceLocation& DefHead){
 
@@ -1568,9 +1576,9 @@ namespace sseq
         int bits=-1;
 
         if(getFlag(NULL_BIT)){
-            
-
             std::string func_name = func_decl->getNameAsString();
+            global_current_func_name = func_name;
+
             std::cout<<"\n| Function [" << func_decl->getNameAsString() << "] defined in: " << filePath << "\n";
 
             if (func_decl == func_decl->getDefinition()){
