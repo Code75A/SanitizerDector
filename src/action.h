@@ -64,7 +64,7 @@ class SeqASTVisitor : public clang::RecursiveASTVisitor<SeqASTVisitor>
     void judgeShfWithoutUBFuzz(const clang::BinaryOperator *bop,std::string* insertStr,int &count,clang::SourceManager& SM,clang::Rewriter &_rewriter,clang::SourceLocation& DefHead,clang::SourceLocation& CallExprHead);
 
     void JudgeAndInsert(clang::Stmt* &stmt,const clang::BinaryOperator *bop,clang::Rewriter &_rewriter,int &count,clang::SourceManager& SM,std::string type,std::string mode,clang::SourceLocation& DefHead);
-    void JudgeAndPtrTrack(clang::Stmt* stmt,clang::SourceManager& SM,clang::SourceLocation& DefHead);
+    void JudgeAndPtrTrack(clang::Stmt* stmt,int cur_count,clang::SourceManager& SM,clang::SourceLocation& DefHead);
     
     void LoopChildren(clang::Stmt*& stmt,const clang::BinaryOperator *bop,clang::Rewriter &_rewriter, int &count, clang::SourceManager& SM, std::string type,std::string stmt_string,std::string mode,clang::SourceLocation& DefHead);
 
