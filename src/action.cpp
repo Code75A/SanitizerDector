@@ -1,6 +1,8 @@
 #include "action.h"
 namespace sseq
 {
+    //可以用Expr*->IgnoreParenImpCasts();去掉外部括号、隐式转换……
+
     // -----------null模式全局变量-----------
     std::unordered_set<std::string> w_NameList;
     std::string global_current_func_name;
@@ -59,8 +61,7 @@ namespace sseq
         return clang::SourceRange(loc,end);
     }
 
-    // ----------------------
-
+    // -----------返回值bool判定函数-----------
     //true:str含/或%
     bool PosDivideZero(std::string str){
         return str.find('/')!=-1 || str.find('%')!=-1;
@@ -77,23 +78,33 @@ namespace sseq
         else 
             return false;
     }
-    //true:
+    //true:此bop是赋值类型
     bool isMallocAssignment(clang::BinaryOperator* bop){
         if (!bop->isAssignmentOp()) return false;
 
         clang::Expr* rhs = bop->getRHS()->IgnoreParenImpCasts();
-        if (auto* callExpr = llvm::dyn_cast<clang::CallExpr>(rhs)) {
-            if (clang::FunctionDecl* callee = callExpr->getDirectCallee()) {
-                std::string name = callee->getNameAsString();
-                std::cout<<"[this assign is"<<name<<std::endl;
-                return ((name == "alloc") || (name == "_alloc") || (name == "malloc"));
+
+        if (auto* castExpr = llvm::dyn_cast<clang::CStyleCastExpr>(rhs)){
+            clang::Expr* subExpr = castExpr->getSubExpr()->IgnoreParenImpCasts();
+            if (auto* callExpr = llvm::dyn_cast<clang::CallExpr>(subExpr)) {
+
+                if (auto* callee = callExpr->getCallee()) {
+                    callee = callee->IgnoreImpCasts();
+
+                    if (auto* declRef = llvm::dyn_cast<clang::DeclRefExpr>(callee)){
+                        std::string name = declRef->getNameInfo().getAsString();
+                        std::cout<<"[this assign is:"<<name<<std::endl;
+                        return ((name=="ALLOCA") || (name == "alloc") || (name == "_alloc") || (name == "malloc"));
+                    }
+                    
+                }
             }
         }
+        
 
         return false;
     }
-
-    //  ---------------------
+    //  -----------返回值bool判定函数----------
 
     //简化file_name中的路径和后缀 ，获取纯净文件名
     void SimplifiedFileName(std::string& file_name){
@@ -150,7 +161,7 @@ namespace sseq
 
     }
 
-    //TODO
+    //通过( ->_),(*->_S)将str转变为合法变量名
     std::string strTrans(const std::string str) {
         std::string result;
         for (char ch : str) {
@@ -258,7 +269,6 @@ namespace sseq
         return Arr+Cat;
     }
 
-    
 
     //UBFUZZ模式下定位处于if或for内部的目标stmt
     void GetSubExpr(clang::Stmt *&stmt,clang::Stmt *&ori_stmt, std::string type,bool &fir,clang::SourceManager& SM,int &UBFUZZ_line){
@@ -335,11 +345,7 @@ namespace sseq
             //std::cout<<Tool::get_stmt_string(stmt)<<std::endl;
         }
     }
-    //UBFUZZ模式下穷举UBFUZZ mode所有需要拆括号（提取SubExpr）的情况，并用SubExpr替换Expr
-    //TODO 
-    void GetSimplifiedExprUBFuzz(){
 
-    }
     //穷举所有需要拆括号（提取SubExpr）的情况，并用SubExpr替换Expr
     void GetSimplifiedExpr(clang::Expr *&hs,const clang::BinaryOperator *&bop,std::string type){
         while(!bop){
@@ -384,7 +390,7 @@ namespace sseq
         return ;
     }
     
-    //UBFUZZ-Shf模式下遍历找到UBFUZZ的位置并插装
+    //UBFUZZ-Shf模式下遍历找到UBFUZZ的位置并插桩
     void SeqASTVisitor::judgeShf(const clang::BinaryOperator *bop,const clang::BinaryOperator* last_bop,std::string* insertStr,clang::SourceManager& SM,int& bits){
         if(bop == nullptr){
             std::cout<<"warnning:encounter nullptr,maybe not a binaryoperator\n";
@@ -495,7 +501,7 @@ namespace sseq
         
         return ;
     }
-    //TODO:注释
+    //UBFUZZ-Div-Print模式下遍历找到UBFUZZ的位置，插桩并插入CHECK_CODE
     void SeqASTVisitor::judgePrint(const clang::BinaryOperator *bop,clang::SourceManager& SM,const int c,clang::SourceLocation &loc){
         if(bop == nullptr){
             std::cout<<"warnning:encounter nullptr,maybe not a binaryoperator\n";
@@ -608,7 +614,7 @@ namespace sseq
         return ;
 
     }
-    //UBFUZZ-Div模式下遍历找到UBFUZZ的位置并插装
+    //UBFUZZ-Div模式下遍历找到UBFUZZ的位置并插桩
     void SeqASTVisitor::judgeDiv(const clang::BinaryOperator *bop,std::string* insertStr,int &count,clang::SourceManager& SM,const int c,clang::SourceLocation &loc){
         if(bop == nullptr){
             std::cout<<"warnning:encounter nullptr,maybe not a binaryoperator\n";
@@ -857,7 +863,7 @@ namespace sseq
         }
         return ;
     }
-    //TODO:注释
+    //mut插入模式下（无UBFUZZ），对bop下的AST中的所有可能的<<与>>进行查询和插入
     void SeqASTVisitor::judgeShfWithoutUBFuzz(const clang::BinaryOperator *bop,std::string* insertStr,int &count,clang::SourceManager& SM,clang::Rewriter &_rewriter,clang::SourceLocation& DefHead){
         if(bop == nullptr){
             std::cout<<"warnning:encounter nullptr,maybe not a binaryoperator\n";
@@ -921,7 +927,7 @@ namespace sseq
         return ;
 
     }
-    //TODO:注释
+    //mut插入模式下（无UBFUZZ），对某CallExpr bop下的AST中的所有可能的<<与>>进行查询和插入,位置固定在在CallExprHead防止误判为参数
     void SeqASTVisitor::judgeShfWithoutUBFuzz(const clang::BinaryOperator *bop,std::string* insertStr,int &count,clang::SourceManager& SM,clang::Rewriter &_rewriter,clang::SourceLocation& DefHead,clang::SourceLocation& CallExprHead){
         std::cout<<"judge_insert_CallExpr:"<<std::endl;
         if(bop == nullptr){
@@ -996,7 +1002,7 @@ namespace sseq
             if (clang::VarDecl *varDecl = llvm::dyn_cast<clang::VarDecl>(decl)) {
                 clang::Expr * expr = varDecl->getInit();
 
-                if(!(bop = llvm::dyn_cast<clang::BinaryOperator>(expr)));
+                if(!(bop = llvm::dyn_cast<clang::BinaryOperator>(expr)))
                     GetSimplifiedExpr(expr,bop,expr->getStmtClassName());
 
                 std::string* insertStr=new std::string;
@@ -1080,20 +1086,20 @@ namespace sseq
 
                     else{
                         std::string* insertStr = new std::string;
-                        std::string* insertCatcher = new std::string;
+                        //std::string* insertCatcher = new std::string;
                         *insertStr = "";
-                        *insertCatcher = "";
+                        //*insertCatcher = "";
 
                         std::string vname = var->getNameAsString();
                         std::string typestr = var->getType().getAsString();
                         initNullPtr(vname,typestr,insertStr,SM);
-                        initNullPtrCatcher(vname,cur_count,insertCatcher,SM);
+                        //initNullPtrCatcher(vname,cur_count,insertCatcher,SM);
                         
                         const clang::LangOptions& LangOpts = _ctx->getLangOpts();
                         clang::SourceLocation end = clang::Lexer::getLocForEndOfToken(var->getEndLoc(), 0, SM, LangOpts);
 
                         _rewriter.InsertTextAfter(end,*insertStr);
-                        _rewriter.InsertTextBefore(DefHead,*insertCatcher);
+                        //_rewriter.InsertTextBefore(DefHead,*insertCatcher);
 
                         delete insertStr;
                     }
@@ -1118,19 +1124,23 @@ namespace sseq
 
                     bool decl_ref_flag = false;
                     bool member_flag = false;
+                    bool array_flag =false;
 
                     clang::MemberExpr* struct_member=nullptr;
+                    clang::ArraySubscriptExpr* array_expr=nullptr;
                     clang::DeclRefExpr* declexpr=nullptr;
 
                     if(declexpr = llvm::dyn_cast<clang::DeclRefExpr>(lhs))
                         decl_ref_flag = true;
                     else if(struct_member = llvm::dyn_cast<clang::MemberExpr>(lhs))
                         member_flag = true;
+                    else if(array_expr = llvm::dyn_cast<clang::ArraySubscriptExpr>(lhs))
+                        array_flag = true;
 
-                    if(decl_ref_flag || member_flag){
+                    if(decl_ref_flag || member_flag || array_flag){
                         
 
-                        assert(struct_member!=nullptr || declexpr!=nullptr);
+                        assert(struct_member!=nullptr || declexpr!=nullptr || array_expr!=nullptr);
 
                         std::string varName;
                         std::string typestr;
@@ -1142,11 +1152,19 @@ namespace sseq
                             varName = decl_ref->getNameInfo().getAsString();
                             typestr = decl_ref->getType().getAsString();
                         }
-                        else 
+                        else if(decl_ref_flag)
                         {
                             clang::ValueDecl* value_decl = declexpr->getDecl();
                             varName = value_decl->getNameAsString();
                             typestr = value_decl->getType().getAsString();
+                        }
+                        else{
+                            clang::Expr* base = array_expr->getBase()->IgnoreParenImpCasts();
+
+                            if (auto* base_decl = llvm::dyn_cast<clang::DeclRefExpr>(base)) {
+                                varName = base_decl->getNameInfo().getAsString();
+                                typestr = base_decl->getType().getAsString();
+                            }
                         }
                             
                         if(w_NameList.find(varName) == w_NameList.end()){
@@ -1166,32 +1184,37 @@ namespace sseq
                 }
             }
         }
+        //print(a);
         else if(clang::CallExpr* callexpr = llvm::dyn_cast<clang::CallExpr>(stmt)){
             int numArgs = callexpr->getNumArgs();
 
             for(int i = 0; i < numArgs; i++){
-                clang::Expr* arg = callexpr->getArg(i);
+                clang::Expr* arg = callexpr->getArg(i)->IgnoreImpCasts();
 
                 std::cout<<"arg"<<i<<": "<<arg->getStmtClassName()<<std::endl;
                 
-                if(clang::ImplicitCastExpr* imp_cast_expr = llvm::dyn_cast<clang::ImplicitCastExpr>(arg))
-                    arg = imp_cast_expr->getSubExpr();
+                // if(clang::ImplicitCastExpr* imp_cast_expr = llvm::dyn_cast<clang::ImplicitCastExpr>(arg))
+                //     arg = imp_cast_expr->getSubExpr();
 
                 bool decl_ref_flag = false;
                 bool member_flag = false;
+                bool array_flag = false;
 
                 clang::MemberExpr* struct_member=nullptr;
+                clang::ArraySubscriptExpr* array_expr=nullptr;
                 clang::DeclRefExpr* declexpr=nullptr;
 
                 if(declexpr = llvm::dyn_cast<clang::DeclRefExpr>(arg))
                     decl_ref_flag = true;
                 else if(struct_member = llvm::dyn_cast<clang::MemberExpr>(arg))
                     member_flag = true;
+                else if(array_expr = llvm::dyn_cast<clang::ArraySubscriptExpr>(arg))
+                    array_flag = true;
 
-                if(decl_ref_flag || member_flag){
+                if(decl_ref_flag || member_flag || array_flag){
                     clang::ValueDecl* value_decl;
 
-                    assert(struct_member!=nullptr || declexpr!=nullptr);
+                    assert(struct_member!=nullptr || declexpr!=nullptr || array_expr!=nullptr);
 
                     std::string varName;
                     std::string typestr;
@@ -1203,16 +1226,25 @@ namespace sseq
                         varName = decl_ref->getNameInfo().getAsString();
                         typestr = decl_ref->getType().getAsString();
                     }
-                    else 
-                    {
+                    else if(decl_ref_flag){
                         clang::ValueDecl* value_decl = declexpr->getDecl();
                         varName = value_decl->getNameAsString();
                         typestr = value_decl->getType().getAsString();
+                    }
+                    else{
+                        clang::Expr* base = array_expr->getBase()->IgnoreParenImpCasts();
+
+                        if (auto* base_decl = llvm::dyn_cast<clang::DeclRefExpr>(base)) {
+                            varName = base_decl->getNameInfo().getAsString();
+                            typestr = base_decl->getType().getAsString();
+                        }
                     }
 
                     if(w_NameList.find(varName) == w_NameList.end()){
                         std::string* insertStr = new std::string;
                         *insertStr = "";
+
+                        std::cout<<"trying to generateNullPtr"<<std::endl;
                         generateNullPtr(varName,cur_count,typestr,insertStr,SM);
 
                         const clang::LangOptions& LangOpts = _ctx->getLangOpts();
@@ -1651,11 +1683,19 @@ namespace sseq
         if(getFlag(NULL_BIT)){
             w_NameList.clear();
 
+            std::cout<<"\n| Function [" << func_decl->getNameAsString() << "] defined in: " << filePath << "\n";
+            int cur_count = count;
+
             std::string func_name = func_decl->getNameAsString();
             global_current_func_name = func_name;
 
-            std::cout<<"\n| Function [" << func_decl->getNameAsString() << "] defined in: " << filePath << "\n";
-            int cur_count = count;
+            clang::SourceLocation defHead = func_decl->getBeginLoc();
+
+            std::string* insertCatcher = new std::string;
+            *insertCatcher = "";
+
+            initNullPtrCatcher("no_need",cur_count,insertCatcher,SM);
+            _rewriter.InsertTextBefore(defHead,*insertCatcher);
 
             if (func_decl == func_decl->getDefinition()){
                 clang::Stmt *body_stmt = func_decl->getBody();
@@ -1668,8 +1708,7 @@ namespace sseq
 
                     std::cout<<"check:"<<stmt_string<<std::endl;
 
-                    clang::SourceLocation defHead = func_decl->getBeginLoc();
-
+                    
                     if(NeedLoopChildren(type)){
                         LoopChildren(stmt,nullptr,_rewriter, cur_count, SM, type, stmt_string, "null", defHead);
                     }
@@ -1839,25 +1878,3 @@ namespace sseq
     }
 
 };
-
-/*
-                    if(op==clang::BinaryOperator::Opcode::BO_Assign)
-                    {
-                        clang::Expr *lhs = bop->getLHS(); clang::Expr *rhs = bop->getRHS();//获取右边的
-                        
-                        std::cout<<Tool::get_stmt_string(lhs)<<"="<<Tool::get_stmt_string(rhs)<<std::endl;
-
-                        if(const clang::BinaryOperator *bopsec =llvm::dyn_cast<clang::BinaryOperator>(rhs)){
-                            clang::BinaryOperator::Opcode opsec = bopsec->getOpcode();
-                            clang::Expr *rhssec = bopsec->getRHS();//获取右边的
-
-                            if(opsec==clang::BinaryOperator::Opcode::BO_Div){
-
-                                _rewriter.InsertTextBefore(stmt->getBeginLoc(),
-                                generateArray(count++,Tool::get_stmt_string(rhssec)));
-                            }
-                        }
-                        
-                    }
-
-                    */
