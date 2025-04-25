@@ -1,7 +1,7 @@
 #include "action.h"
 namespace sseq
 {
-    //可以用Expr*->IgnoreParenImpCasts();去掉外部括号、隐式转换……
+    //可以用Expr*->IgnoreParenCasts();去掉外部括号、转换……
 
     // -----------null模式全局变量-----------
     std::unordered_set<std::string> w_NameList;
@@ -82,24 +82,27 @@ namespace sseq
     bool isMallocAssignment(clang::BinaryOperator* bop){
         if (!bop->isAssignmentOp()) return false;
 
-        clang::Expr* rhs = bop->getRHS()->IgnoreParenImpCasts();
+        clang::Expr* rhs = bop->getRHS()->IgnoreParenCasts();
 
-        if (auto* castExpr = llvm::dyn_cast<clang::CStyleCastExpr>(rhs)){
-            clang::Expr* subExpr = castExpr->getSubExpr()->IgnoreParenImpCasts();
-            if (auto* callExpr = llvm::dyn_cast<clang::CallExpr>(subExpr)) {
-
+        std::cout<<rhs->getStmtClassName();
+ //       if (auto* castExpr = llvm::dyn_cast<clang::CStyleCastExpr>(rhs)){
+            //clang::Expr* subExpr = castExpr->getSubExpr()->IgnoreParenImpCasts();
+            if (auto* callExpr = llvm::dyn_cast<clang::CallExpr>(rhs)) {
+                std::cout<<"[this assign is call_expr."<<std::endl;
                 if (auto* callee = callExpr->getCallee()) {
                     callee = callee->IgnoreImpCasts();
 
                     if (auto* declRef = llvm::dyn_cast<clang::DeclRefExpr>(callee)){
                         std::string name = declRef->getNameInfo().getAsString();
                         std::cout<<"[this assign is:"<<name<<std::endl;
-                        return ((name=="ALLOCA") || (name == "alloc") || (name == "_alloc") || (name == "malloc"));
+                        return ((name=="ALLOCA") || (name == "alloc") || (name == "_alloc")
+                        || (name=="__builtin_alloca") || (name == "malloc"));
                     }
                     
                 }
             }
-        }
+//        }
+        
         
 
         return false;
@@ -169,6 +172,10 @@ namespace sseq
                 result += '_';
             } else if (ch == '*') {
                 result += "_S";
+            } else if (ch == '['){
+                result += '_';
+            } else if (ch == ']'){
+                result += '_';
             } else {
                 result += ch;
             }
@@ -216,7 +223,7 @@ namespace sseq
         SimplifiedFileName(file_name);
 
         std::string norm_typestr=strTrans(typestr);
-        *insertStr=";int* "+file_name+"_"+global_current_func_name+"_"+v_name+"_copy_"+norm_typestr;
+        *insertStr=";int* "+file_name+"_"+global_current_func_name+"_"+v_name+"_copy_"+norm_typestr+"=NULL";
 
         return ;
     }
@@ -1072,37 +1079,45 @@ namespace sseq
     void SeqASTVisitor::JudgeAndPtrTrack(clang::Stmt* stmt,int cur_count, clang::SourceManager& SM,clang::SourceLocation& DefHead){
 
         std::string type = stmt->getStmtClassName();
-        std::cout<<"type is :"<<type<<std::endl;
+        std::cout<<Tool::get_stmt_string(stmt)<<"---type is :"<<type<<std::endl;
         
         //int a; && int a=1;
         if(clang::DeclStmt* declstmt = llvm::dyn_cast<clang::DeclStmt>(stmt)){
             if(declstmt->isSingleDecl()){
                 if(clang::VarDecl *var=llvm::dyn_cast<clang::VarDecl>(declstmt->getSingleDecl())){
-                    std::cout<<Tool::get_stmt_string(stmt)<<std::endl;
-
-                    if(var->hasInit()){
-                        w_NameList.insert(var->getNameAsString());
-                    }
-
-                    else{
-                        std::string* insertStr = new std::string;
-                        //std::string* insertCatcher = new std::string;
-                        *insertStr = "";
-                        //*insertCatcher = "";
-
-                        std::string vname = var->getNameAsString();
-                        std::string typestr = var->getType().getAsString();
-                        initNullPtr(vname,typestr,insertStr,SM);
-                        //initNullPtrCatcher(vname,cur_count,insertCatcher,SM);
+                    
+                    // if(var->getType()->isArrayType()){
                         
-                        const clang::LangOptions& LangOpts = _ctx->getLangOpts();
-                        clang::SourceLocation end = clang::Lexer::getLocForEndOfToken(var->getEndLoc(), 0, SM, LangOpts);
+                    // }
+                    // else{
+                        std::cout<<Tool::get_stmt_string(stmt)<<std::endl;
 
-                        _rewriter.InsertTextAfter(end,*insertStr);
-                        //_rewriter.InsertTextBefore(DefHead,*insertCatcher);
+                        if(var->hasInit()){
+                            w_NameList.insert(var->getNameAsString());
+                        }
 
-                        delete insertStr;
-                    }
+                        else{
+                            std::string* insertStr = new std::string;
+                            //std::string* insertCatcher = new std::string;
+                            *insertStr = "";
+                            //*insertCatcher = "";
+
+                            std::string vname = var->getNameAsString();
+                            std::string typestr = var->getType().getAsString();
+                            initNullPtr(vname,typestr,insertStr,SM);
+                            //initNullPtrCatcher(vname,cur_count,insertCatcher,SM);
+                            
+                            const clang::LangOptions& LangOpts = _ctx->getLangOpts();
+                            clang::SourceLocation end = clang::Lexer::getLocForEndOfToken(var->getEndLoc(), 0, SM, LangOpts);
+
+                            _rewriter.InsertTextAfter(end,*insertStr);
+                            //_rewriter.InsertTextBefore(DefHead,*insertCatcher);
+
+                            delete insertStr;
+                        }
+                    //}
+                    
+                    
                 }
             }
             else{
@@ -1121,6 +1136,8 @@ namespace sseq
                     std::cout<<"check: is not a malloc."<<std::endl;
                     
                     clang::Expr* lhs = bop->getLHS();
+                    if(lhs)
+                        lhs=lhs->IgnoreParenCasts();
 
                     bool decl_ref_flag = false;
                     bool member_flag = false;
@@ -1130,56 +1147,52 @@ namespace sseq
                     clang::ArraySubscriptExpr* array_expr=nullptr;
                     clang::DeclRefExpr* declexpr=nullptr;
 
-                    if(declexpr = llvm::dyn_cast<clang::DeclRefExpr>(lhs))
-                        decl_ref_flag = true;
-                    else if(struct_member = llvm::dyn_cast<clang::MemberExpr>(lhs))
-                        member_flag = true;
-                    else if(array_expr = llvm::dyn_cast<clang::ArraySubscriptExpr>(lhs))
-                        array_flag = true;
+                    do{
+                        member_flag=array_flag=false;
 
-                    if(decl_ref_flag || member_flag || array_flag){
+                        if(declexpr = llvm::dyn_cast<clang::DeclRefExpr>(lhs)){
+                            decl_ref_flag = true;
+                            std::cout<<"[decl_ref] activated"<<std::endl;
+                        }
+                            
+                        else if(struct_member = llvm::dyn_cast<clang::MemberExpr>(lhs)){
+                            member_flag = true;
+                            lhs=struct_member->getBase()->IgnoreParenCasts();
+                            std::cout<<"[member_expr] activated"<<std::endl;
+                        }
+                            
+                        else if(array_expr = llvm::dyn_cast<clang::ArraySubscriptExpr>(lhs)){
+                            array_flag = true;
+                            lhs=array_expr->getBase()->IgnoreParenCasts();
+                            std::cout<<"[array_expr] activated"<<std::endl;
+                        }
+
+                    }while(member_flag || array_flag);
                         
-
-                        assert(struct_member!=nullptr || declexpr!=nullptr || array_expr!=nullptr);
-
                         std::string varName;
                         std::string typestr;
 
-                        if(member_flag){
-                            clang::Expr* expr = struct_member->getBase();
-                            clang::DeclRefExpr* decl_ref = llvm::dyn_cast<clang::DeclRefExpr>(expr);
-                            
-                            varName = decl_ref->getNameInfo().getAsString();
-                            typestr = decl_ref->getType().getAsString();
-                        }
-                        else if(decl_ref_flag)
-                        {
+                        if(decl_ref_flag && (!member_flag) && !(array_flag)){
+
                             clang::ValueDecl* value_decl = declexpr->getDecl();
                             varName = value_decl->getNameAsString();
                             typestr = value_decl->getType().getAsString();
-                        }
-                        else{
-                            clang::Expr* base = array_expr->getBase()->IgnoreParenImpCasts();
+                        
+                            
+                            if(w_NameList.find(varName) == w_NameList.end()){
+                                std::string* insertStr = new std::string;
+                                *insertStr = "";
+                                generateNullPtrAssign(varName,cur_count,typestr,insertStr,SM);
 
-                            if (auto* base_decl = llvm::dyn_cast<clang::DeclRefExpr>(base)) {
-                                varName = base_decl->getNameInfo().getAsString();
-                                typestr = base_decl->getType().getAsString();
+                                const clang::LangOptions& LangOpts = _ctx->getLangOpts();
+                                clang::SourceLocation end = clang::Lexer::getLocForEndOfToken(bop->getEndLoc(), 0, SM, LangOpts);
+                                _rewriter.InsertTextAfter(end,*insertStr);
+
+                                delete insertStr;
                             }
                         }
-                            
-                        if(w_NameList.find(varName) == w_NameList.end()){
-                            std::string* insertStr = new std::string;
-                            *insertStr = "";
-                            generateNullPtrAssign(varName,cur_count,typestr,insertStr,SM);
 
-                            const clang::LangOptions& LangOpts = _ctx->getLangOpts();
-                            clang::SourceLocation end = clang::Lexer::getLocForEndOfToken(bop->getEndLoc(), 0, SM, LangOpts);
-                            _rewriter.InsertTextAfter(end,*insertStr);
-
-                            delete insertStr;
-                        }
-
-                    }
+                    
                     
                 }
             }
@@ -1189,9 +1202,12 @@ namespace sseq
             int numArgs = callexpr->getNumArgs();
 
             for(int i = 0; i < numArgs; i++){
-                clang::Expr* arg = callexpr->getArg(i)->IgnoreImpCasts();
-
-                std::cout<<"arg"<<i<<": "<<arg->getStmtClassName()<<std::endl;
+                clang::Expr* arg = callexpr->getArg(i);
+                if(arg){
+                    arg=arg->IgnoreParenCasts();
+                    std::cout<<"arg"<<i<<": "<<arg->getStmtClassName()<<std::endl;
+                }
+                    
                 
                 // if(clang::ImplicitCastExpr* imp_cast_expr = llvm::dyn_cast<clang::ImplicitCastExpr>(arg))
                 //     arg = imp_cast_expr->getSubExpr();
@@ -1204,63 +1220,66 @@ namespace sseq
                 clang::ArraySubscriptExpr* array_expr=nullptr;
                 clang::DeclRefExpr* declexpr=nullptr;
 
-                if(declexpr = llvm::dyn_cast<clang::DeclRefExpr>(arg))
-                    decl_ref_flag = true;
-                else if(struct_member = llvm::dyn_cast<clang::MemberExpr>(arg))
-                    member_flag = true;
-                else if(array_expr = llvm::dyn_cast<clang::ArraySubscriptExpr>(arg))
-                    array_flag = true;
+                do{
+                    member_flag=array_flag=false;
 
-                if(decl_ref_flag || member_flag || array_flag){
-                    clang::ValueDecl* value_decl;
+                    if(declexpr = llvm::dyn_cast<clang::DeclRefExpr>(arg)){
+                        decl_ref_flag = true;
+                        std::cout<<"[decl_ref] activated"<<std::endl;
+                    }
+                        
+                    else if(struct_member = llvm::dyn_cast<clang::MemberExpr>(arg)){
+                        member_flag = true;
+                        arg=struct_member->getBase()->IgnoreParenCasts();
+                        std::cout<<"[member_expr] activated"<<std::endl;
+                    }
+                        
+                    else if(array_expr = llvm::dyn_cast<clang::ArraySubscriptExpr>(arg)){
+                        array_flag = true;
+                        arg=array_expr->getBase()->IgnoreParenCasts();
+                        std::cout<<"[array_expr] activated"<<std::endl;
+                    }
 
-                    assert(struct_member!=nullptr || declexpr!=nullptr || array_expr!=nullptr);
-
+                }while(member_flag || array_flag);
+                    
                     std::string varName;
                     std::string typestr;
 
-                    if(member_flag){
-                        clang::Expr* expr = struct_member->getBase();
-                        clang::DeclRefExpr* decl_ref = llvm::dyn_cast<clang::DeclRefExpr>(expr);
-                            
-                        varName = decl_ref->getNameInfo().getAsString();
-                        typestr = decl_ref->getType().getAsString();
-                    }
-                    else if(decl_ref_flag){
+                    if(decl_ref_flag && (!member_flag) && !(array_flag)){
                         clang::ValueDecl* value_decl = declexpr->getDecl();
+
+                        std::cout<<"check valuedecl exist"<<std::endl;
+
                         varName = value_decl->getNameAsString();
+
                         typestr = value_decl->getType().getAsString();
-                    }
-                    else{
-                        clang::Expr* base = array_expr->getBase()->IgnoreParenImpCasts();
+                    
+                        
+                        if(w_NameList.find(varName) == w_NameList.end()){
 
-                        if (auto* base_decl = llvm::dyn_cast<clang::DeclRefExpr>(base)) {
-                            varName = base_decl->getNameInfo().getAsString();
-                            typestr = base_decl->getType().getAsString();
+                            std::cout<<"check into w_NameList"<<std::endl;
+
+                            std::string* insertStr = new std::string;
+                            *insertStr = "";
+                            generateNullPtr(varName,cur_count,typestr,insertStr,SM);
+
+                            const clang::LangOptions& LangOpts = _ctx->getLangOpts();
+                            clang::SourceLocation end = clang::Lexer::getLocForEndOfToken(callexpr->getEndLoc(), 0, SM, LangOpts);
+                            _rewriter.InsertTextAfter(end,*insertStr);
+
+                            delete insertStr;
                         }
+                        std::cout<<"check w_namelist finished"<<std::endl;
                     }
 
-                    if(w_NameList.find(varName) == w_NameList.end()){
-                        std::string* insertStr = new std::string;
-                        *insertStr = "";
-
-                        std::cout<<"trying to generateNullPtr"<<std::endl;
-                        generateNullPtr(varName,cur_count,typestr,insertStr,SM);
-
-                        const clang::LangOptions& LangOpts = _ctx->getLangOpts();
-                        clang::SourceLocation end = clang::Lexer::getLocForEndOfToken(callexpr->getEndLoc(), 0, SM, LangOpts);
-                        _rewriter.InsertTextAfter(end,*insertStr);
-
-                        delete insertStr;
-                    }
-                }
-                
             }
+            std::cout<<"check judge finished"<<std::endl;
         }
     }
     //对于需要循环遍历其子语句的Stmt（NeedLoopChildren）遍历其子语句
     void SeqASTVisitor::LoopChildren(clang::Stmt*& stmt,const clang::BinaryOperator *bop,clang::Rewriter &_rewriter, int &count, clang::SourceManager& SM, std::string type,std::string stmt_string,std::string mode,clang::SourceLocation& DefHead)
     {
+        std::cout<<"type:["<<type<<"] need to Loop children"<<std::endl;
         if(type=="ForStmt"){
             clang::ForStmt *FS = llvm::dyn_cast<clang::ForStmt>(stmt);
             clang::Stmt *scond=FS->getCond();
@@ -1492,41 +1511,68 @@ namespace sseq
                                    
             clang::Stmt *sbody=  SS->getBody();
 
-             std::cout<<"sbody"<<std::endl;
+            std::cout<<"sbody"<<std::endl;
 
-            for (clang::SwitchCase* case_stmt = SS->getSwitchCaseList(); case_stmt; case_stmt = case_stmt->getNextSwitchCase() ){
-                stmt_string=Tool::get_stmt_string(case_stmt);
-
-                std::cout<<"case:"<<stmt_string<<std::endl;
-
-                if(clang::CompoundStmt *com = llvm::dyn_cast<clang::CompoundStmt>(case_stmt->getSubStmt())){
-                    clang::Stmt *com_stmt=llvm::dyn_cast<clang::Stmt>(com);
-                    LoopChildren(com_stmt,bop,_rewriter,count,SM,"CompoundStmt",stmt_string,mode,DefHead);
+            for (clang::Stmt* subStmt : sbody->children()) {
+                if(clang::CaseStmt* case_stmt=llvm::dyn_cast<clang::CaseStmt>(subStmt)){
+                    subStmt=case_stmt->getSubStmt();
                 }
-                else{
-                    clang::Stmt *com_stmt=llvm::dyn_cast<clang::Stmt>(case_stmt->getSubStmt());
+                else if(clang::DefaultStmt* default_stmt=llvm::dyn_cast<clang::DefaultStmt>(subStmt)){
+                    subStmt=default_stmt->getSubStmt();
+                }
 
-                    type = com_stmt->getStmtClassName();
+                type = subStmt->getStmtClassName();
+                stmt_string=Tool::get_stmt_string(subStmt);
 
-                    stmt_string=Tool::get_stmt_string(com_stmt);
+                if(NeedLoopChildren(type))
+                LoopChildren(subStmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string,mode,DefHead);
 
-                    if(NeedLoopChildren(type))
-                        LoopChildren(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string,mode,DefHead);
-
-                    else if(mode == "div"){
-                        if(PosDivideZero(stmt_string))
-                            JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),mode,DefHead);
-                    }
-                    else if(mode == "shf"){
-                        if(PosShfOverflow(stmt_string))
-                            JudgeAndInsert(s_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),mode,DefHead);
-                    }
-                    else if(mode == "null"){
-                        JudgeAndPtrTrack(s_stmt,count,SM,DefHead);
-                    }
-
-                }                      
+                else if(mode == "div"){
+                    if(PosDivideZero(stmt_string))
+                        JudgeAndInsert(subStmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),mode,DefHead);
+                }
+                else if(mode == "shf"){
+                    if(PosShfOverflow(stmt_string))
+                        JudgeAndInsert(subStmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),mode,DefHead);
+                }
+                else if(mode == "null"){
+                    JudgeAndPtrTrack(subStmt,count,SM,DefHead);
+                }
             }
+
+            // for (clang::SwitchCase* case_stmt = SS->getSwitchCaseList(); case_stmt; case_stmt = case_stmt->getNextSwitchCase() ){
+            //     stmt_string=Tool::get_stmt_string(case_stmt);
+
+            //     std::cout<<"case:"<<stmt_string<<std::endl;
+
+            //     if(clang::CompoundStmt *com = llvm::dyn_cast<clang::CompoundStmt>(case_stmt->getSubStmt())){
+            //         clang::Stmt *com_stmt=llvm::dyn_cast<clang::Stmt>(com);
+            //         LoopChildren(com_stmt,bop,_rewriter,count,SM,"CompoundStmt",stmt_string,mode,DefHead);
+            //     }
+            //     else{
+            //         clang::Stmt *com_stmt=llvm::dyn_cast<clang::Stmt>(case_stmt->getSubStmt());
+
+            //         type = com_stmt->getStmtClassName();
+
+            //         stmt_string=Tool::get_stmt_string(com_stmt);
+
+            //         if(NeedLoopChildren(type))
+            //             LoopChildren(com_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),stmt_string,mode,DefHead);
+
+            //         else if(mode == "div"){
+            //             if(PosDivideZero(stmt_string))
+            //                 JudgeAndInsert(com_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),mode,DefHead);
+            //         }
+            //         else if(mode == "shf"){
+            //             if(PosShfOverflow(stmt_string))
+            //                 JudgeAndInsert(com_stmt,bop,_rewriter,count,SM,s_stmt->getStmtClassName(),mode,DefHead);
+            //         }
+            //         else if(mode == "null"){
+            //             JudgeAndPtrTrack(com_stmt,count,SM,DefHead);
+            //         }
+
+            //     }                      
+            // }
         }
         else if(type == "LabelStmt"){
             clang::LabelStmt *LS = llvm::dyn_cast<clang::LabelStmt>(stmt);
@@ -1640,13 +1686,16 @@ namespace sseq
     static bool fir=false;//short for 'first' 
 
     bool SeqASTVisitor::VisitFunctionDecl(clang::FunctionDecl *func_decl){
+        if(!func_decl)
+            return false;
+
         if (!_ctx->getSourceManager().isInMainFile(func_decl->getLocation()))
             return true;
         if (isInSystemHeader(func_decl->getLocation()))
             return true;
             
         //*****打印AST
-        //func_decl->dump();
+        func_decl->dump();
         //*****
         
         clang::SourceManager &SM = _ctx->getSourceManager();
@@ -1682,6 +1731,16 @@ namespace sseq
 
         if(getFlag(NULL_BIT)){
             w_NameList.clear();
+            int param_num=func_decl->getNumParams();
+            
+            for(int i=0;i<param_num;i++){
+                std::string param_name=func_decl->getParamDecl(i)->getNameAsString();
+                w_NameList.insert(param_name);
+            }
+
+
+            if(func_decl->getNameAsString() == "main")
+                return true;
 
             std::cout<<"\n| Function [" << func_decl->getNameAsString() << "] defined in: " << filePath << "\n";
             int cur_count = count;
@@ -1694,10 +1753,17 @@ namespace sseq
             std::string* insertCatcher = new std::string;
             *insertCatcher = "";
 
+            std::cout<<"check init catcher init"<<std::endl;
+
             initNullPtrCatcher("no_need",cur_count,insertCatcher,SM);
             _rewriter.InsertTextBefore(defHead,*insertCatcher);
 
+            std::cout<<"check catcher finished"<<std::endl;
+
             if (func_decl == func_decl->getDefinition()){
+
+                std::cout<<"check func_decl started"<<std::endl;
+
                 clang::Stmt *body_stmt = func_decl->getBody();
                 
                 const clang::BinaryOperator *bop = nullptr;
@@ -1715,7 +1781,10 @@ namespace sseq
                     else{
                         JudgeAndPtrTrack(stmt,cur_count,SM,defHead);
                     }
+
+                    std::cout<<"check for once finished"<<std::endl;
                 }
+
             }
             count++;
         }
