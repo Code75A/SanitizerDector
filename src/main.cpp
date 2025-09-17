@@ -37,9 +37,9 @@ int main(int argc, const char **argv)
         options_parser.getCompilations(),
         options_parser.getCompilations().getAllFiles());
 
-//add
-    clang::tooling::ArgumentsAdjuster ardj = clang::tooling::getInsertArgumentAdjuster("-I/usr/local/llvm/lib/clang/12.0.0/include");
-    tool.appendArgumentsAdjuster(ardj);
+//*******************adjust ****************
+    //clang::tooling::ArgumentsAdjuster ardj = clang::tooling::getInsertArgumentAdjuster("-I/usr/local/llvm/lib/clang/12.0.0/include");
+    //tool.appendArgumentsAdjuster(ardj);
 
     std::cout << "[start]\n";
 

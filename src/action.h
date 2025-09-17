@@ -32,12 +32,15 @@ class SeqASTVisitor : public clang::RecursiveASTVisitor<SeqASTVisitor>
         clang::ASTContext *_ctx;
         clang::Rewriter &_rewriter;
         SeqInfo &seq_info;
+
+        std::set<const clang::FileEntry*> VisitedFiles;
     public:
     explicit SeqASTVisitor(clang::ASTContext *ctx,
                             clang::Rewriter &R,
                             SeqInfo &seq_i)
         : _ctx(ctx), _rewriter(R), seq_info{ seq_i }
     {
+      VisitedFiles.clear();
     }
     ~SeqASTVisitor(){
     }
@@ -46,6 +49,8 @@ class SeqASTVisitor : public clang::RecursiveASTVisitor<SeqASTVisitor>
     clang::SourceRange get_sourcerange(clang::Stmt *stmt);
     clang::SourceRange get_decl_sourcerange(clang::Decl *stmt);
     bool VisitFunctionDecl(clang::FunctionDecl *func_decl); //遍历函数节点
+    bool VisitVarDecl(clang::VarDecl *var_decl); //遍历全局变量
+    bool VisitEnumDecl(clang::EnumDecl *enum_decl); //遍历枚举变量
 
     bool getFlag(int index){
       if(index>=FLAG_WIDTH)
@@ -53,6 +58,7 @@ class SeqASTVisitor : public clang::RecursiveASTVisitor<SeqASTVisitor>
       else return seq_info.vflags[index];
     };
 
+    //TODO: 将函数参数全部转为全局从而重构
     void judgeShf(const clang::BinaryOperator *bop,const clang::BinaryOperator *last_bop,std::string* insertStr,clang::SourceManager& SM,int& bits);
     void judgePrint(const clang::BinaryOperator *bop,clang::SourceManager& SM,const int c,clang::SourceLocation &loc);
     void judgeDiv(const clang::BinaryOperator *bop,std::string* insertStr,int &count,clang::SourceManager& SM,const int c,clang::SourceLocation &loc);
@@ -64,10 +70,13 @@ class SeqASTVisitor : public clang::RecursiveASTVisitor<SeqASTVisitor>
     void judgeShfWithoutUBFuzz(const clang::BinaryOperator *bop,std::string* insertStr,int &count,clang::SourceManager& SM,clang::Rewriter &_rewriter,clang::SourceLocation& DefHead,clang::SourceLocation& CallExprHead);
 
     void JudgeAndInsert(clang::Stmt* &stmt,const clang::BinaryOperator *bop,clang::Rewriter &_rewriter,int &count,clang::SourceManager& SM,std::string type,std::string mode,clang::SourceLocation& DefHead);
-    void JudgeAndPtrTrack(clang::Stmt* stmt,int cur_count,clang::SourceManager& SM,clang::SourceLocation& DefHead);
-    
-    void LoopChildren(clang::Stmt*& stmt,const clang::BinaryOperator *bop,clang::Rewriter &_rewriter, int &count, clang::SourceManager& SM, std::string type,std::string stmt_string,std::string mode,clang::SourceLocation& DefHead);
 
+    void JudgeAndPtrTrack(clang::Stmt* stmt,int cur_count,clang::SourceManager& SM,clang::SourceLocation& DefHead,clang::SourceLocation& insertLoc);
+    
+    void JudgeByMode(clang::Stmt* &stmt,const clang::BinaryOperator *bop,clang::Rewriter &_rewriter,int &count,clang::SourceManager& SM,std::string type,std::string stmt_string,std::string mode,clang::SourceLocation& DefHead);
+
+    void LoopChildren(clang::Stmt* &stmt,const clang::BinaryOperator *bop,clang::Rewriter &_rewriter, int &count, clang::SourceManager& SM, std::string type,std::string stmt_string,std::string mode,clang::SourceLocation& DefHead);
+    
 };
 
 class SeqASTConsumer : public clang::ASTConsumer
