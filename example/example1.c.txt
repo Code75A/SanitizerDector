@@ -1,0 +1,5 @@
+[start]
+null---
+[File location]: example1.c:7:15
+[File location]: example1.c:12:5
+[exit]

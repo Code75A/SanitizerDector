@@ -1,0 +1,7 @@
+/root/sseq/build/CMakeFiles/intrinsics_gen.dir
+/root/sseq/build/CMakeFiles/omp_gen.dir
+/root/sseq/build/CMakeFiles/acc_gen.dir
+/root/sseq/build/CMakeFiles/clang-tablegen-targets.dir
+/root/sseq/build/CMakeFiles/sseq.dir
+/root/sseq/build/CMakeFiles/edit_cache.dir
+/root/sseq/build/CMakeFiles/rebuild_cache.dir

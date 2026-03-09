@@ -1,0 +1,15 @@
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/unittests/clang-apply-replacements/ApplyReplacementsTest.cpp: line 1: //===-: No such file or directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/unittests/clang-apply-replacements/ApplyReplacementsTest.cpp: line 2: //----------------------===//: No such file or directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/unittests/clang-apply-replacements/ApplyReplacementsTest.cpp: line 3: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/unittests/clang-apply-replacements/ApplyReplacementsTest.cpp: line 4: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/unittests/clang-apply-replacements/ApplyReplacementsTest.cpp: line 5: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/unittests/clang-apply-replacements/ApplyReplacementsTest.cpp: line 6: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/unittests/clang-apply-replacements/ApplyReplacementsTest.cpp: line 7: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/unittests/clang-apply-replacements/ApplyReplacementsTest.cpp: line 8: //===----------------------------------------------------------------------===//: No such file or directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/unittests/clang-apply-replacements/ApplyReplacementsTest.cpp: line 14: using: command not found
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/unittests/clang-apply-replacements/ApplyReplacementsTest.cpp: line 15: using: command not found
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/unittests/clang-apply-replacements/ApplyReplacementsTest.cpp: line 17: namespace: command not found
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/unittests/clang-apply-replacements/ApplyReplacementsTest.cpp: line 18: namespace: command not found
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/unittests/clang-apply-replacements/ApplyReplacementsTest.cpp: line 20: static: command not found
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/unittests/clang-apply-replacements/ApplyReplacementsTest.cpp: line 21: syntax error near unexpected token `const'
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/unittests/clang-apply-replacements/ApplyReplacementsTest.cpp: line 21: `makeTUDiagnostics(const std::string &MainSourceFile, StringRef DiagnosticName,'

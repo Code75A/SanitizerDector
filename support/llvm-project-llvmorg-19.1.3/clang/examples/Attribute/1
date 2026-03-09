@@ -1,0 +1,19 @@
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/examples/Attribute/Attribute.cpp: line 1: //===-: No such file or directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/examples/Attribute/Attribute.cpp: line 2: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/examples/Attribute/Attribute.cpp: line 3: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/examples/Attribute/Attribute.cpp: line 4: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/examples/Attribute/Attribute.cpp: line 5: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/examples/Attribute/Attribute.cpp: line 6: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/examples/Attribute/Attribute.cpp: line 7: //===----------------------------------------------------------------------===//: No such file or directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/examples/Attribute/Attribute.cpp: line 8: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/examples/Attribute/Attribute.cpp: line 9: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/examples/Attribute/Attribute.cpp: line 10: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/examples/Attribute/Attribute.cpp: line 11: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/examples/Attribute/Attribute.cpp: line 12: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/examples/Attribute/Attribute.cpp: line 13: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/examples/Attribute/Attribute.cpp: line 14: //===----------------------------------------------------------------------===//: No such file or directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/examples/Attribute/Attribute.cpp: line 22: using: command not found
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/examples/Attribute/Attribute.cpp: line 24: namespace: command not found
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/examples/Attribute/Attribute.cpp: line 26: struct: command not found
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/examples/Attribute/Attribute.cpp: line 32: syntax error near unexpected token `('
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/examples/Attribute/Attribute.cpp: line 32: `    // GNU-style __attribute__(("example")) and C++/C23-style [[example]] and'

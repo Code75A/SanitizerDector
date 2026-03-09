@@ -1,0 +1,16 @@
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/lib/Tooling/RefactoringCallbacks.cpp: line 1: //===---: No such file or directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/lib/Tooling/RefactoringCallbacks.cpp: line 2: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/lib/Tooling/RefactoringCallbacks.cpp: line 3: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/lib/Tooling/RefactoringCallbacks.cpp: line 4: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/lib/Tooling/RefactoringCallbacks.cpp: line 5: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/lib/Tooling/RefactoringCallbacks.cpp: line 6: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/lib/Tooling/RefactoringCallbacks.cpp: line 7: //===----------------------------------------------------------------------===//: No such file or directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/lib/Tooling/RefactoringCallbacks.cpp: line 8: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/lib/Tooling/RefactoringCallbacks.cpp: line 9: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/lib/Tooling/RefactoringCallbacks.cpp: line 10: //===----------------------------------------------------------------------===//: No such file or directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/lib/Tooling/RefactoringCallbacks.cpp: line 16: using: command not found
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/lib/Tooling/RefactoringCallbacks.cpp: line 17: using: command not found
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/lib/Tooling/RefactoringCallbacks.cpp: line 19: namespace: command not found
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/lib/Tooling/RefactoringCallbacks.cpp: line 20: namespace: command not found
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/lib/Tooling/RefactoringCallbacks.cpp: line 22: syntax error near unexpected token `{}'
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/lib/Tooling/RefactoringCallbacks.cpp: line 22: `RefactoringCallback::RefactoringCallback() {}'

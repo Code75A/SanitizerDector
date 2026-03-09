@@ -1,0 +1,17 @@
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/lib/ExtractAPI/TypedefUnderlyingTypeResolver.cpp: line 1: //===-: No such file or directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/lib/ExtractAPI/TypedefUnderlyingTypeResolver.cpp: line 2: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/lib/ExtractAPI/TypedefUnderlyingTypeResolver.cpp: line 3: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/lib/ExtractAPI/TypedefUnderlyingTypeResolver.cpp: line 4: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/lib/ExtractAPI/TypedefUnderlyingTypeResolver.cpp: line 5: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/lib/ExtractAPI/TypedefUnderlyingTypeResolver.cpp: line 6: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/lib/ExtractAPI/TypedefUnderlyingTypeResolver.cpp: line 7: //===----------------------------------------------------------------------===//: No such file or directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/lib/ExtractAPI/TypedefUnderlyingTypeResolver.cpp: line 8: ///: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/lib/ExtractAPI/TypedefUnderlyingTypeResolver.cpp: line 9: ///: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/lib/ExtractAPI/TypedefUnderlyingTypeResolver.cpp: line 10: ///: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/lib/ExtractAPI/TypedefUnderlyingTypeResolver.cpp: line 11: ///: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/lib/ExtractAPI/TypedefUnderlyingTypeResolver.cpp: line 12: //===----------------------------------------------------------------------===//: No such file or directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/lib/ExtractAPI/TypedefUnderlyingTypeResolver.cpp: line 18: using: command not found
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/lib/ExtractAPI/TypedefUnderlyingTypeResolver.cpp: line 19: using: command not found
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/lib/ExtractAPI/TypedefUnderlyingTypeResolver.cpp: line 21: const: command not found
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/lib/ExtractAPI/TypedefUnderlyingTypeResolver.cpp: line 22: syntax error near unexpected token `QualType'
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang/lib/ExtractAPI/TypedefUnderlyingTypeResolver.cpp: line 22: `TypedefUnderlyingTypeResolver::getUnderlyingTypeDecl(QualType Type) const {'

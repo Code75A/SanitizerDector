@@ -1,0 +1,14 @@
+[
+  {
+    "arguments": [
+      "/usr/local/bin/gcc",
+      "-c",
+      "-o",
+      "example1",
+      "example1.c"
+    ],
+    "directory": "/root/example",
+    "file": "/root/example/example1.c",
+    "output": "/root/example/example1"
+  }
+]

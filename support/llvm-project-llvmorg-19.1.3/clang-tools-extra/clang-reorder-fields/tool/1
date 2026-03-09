@@ -1,0 +1,16 @@
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/clang-reorder-fields/tool/ClangReorderFields.cpp: line 1: //===--: No such file or directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/clang-reorder-fields/tool/ClangReorderFields.cpp: line 2: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/clang-reorder-fields/tool/ClangReorderFields.cpp: line 3: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/clang-reorder-fields/tool/ClangReorderFields.cpp: line 4: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/clang-reorder-fields/tool/ClangReorderFields.cpp: line 5: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/clang-reorder-fields/tool/ClangReorderFields.cpp: line 6: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/clang-reorder-fields/tool/ClangReorderFields.cpp: line 7: //===----------------------------------------------------------------------===//: No such file or directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/clang-reorder-fields/tool/ClangReorderFields.cpp: line 8: ///: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/clang-reorder-fields/tool/ClangReorderFields.cpp: line 9: ///: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/clang-reorder-fields/tool/ClangReorderFields.cpp: line 10: ///: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/clang-reorder-fields/tool/ClangReorderFields.cpp: line 11: ///: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/clang-reorder-fields/tool/ClangReorderFields.cpp: line 12: //===----------------------------------------------------------------------===//: No such file or directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/clang-reorder-fields/tool/ClangReorderFields.cpp: line 32: using: command not found
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/clang-reorder-fields/tool/ClangReorderFields.cpp: line 33: using: command not found
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/clang-reorder-fields/tool/ClangReorderFields.cpp: line 35: syntax error near unexpected token `('
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/clang-reorder-fields/tool/ClangReorderFields.cpp: line 35: `cl::OptionCategory ClangReorderFieldsCategory("clang-reorder-fields options");'

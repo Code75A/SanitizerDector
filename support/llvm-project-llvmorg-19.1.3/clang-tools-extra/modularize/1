@@ -1,0 +1,37 @@
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/modularize/ModuleAssistant.cpp: line 1: //===---: No such file or directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/modularize/ModuleAssistant.cpp: line 2: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/modularize/ModuleAssistant.cpp: line 3: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/modularize/ModuleAssistant.cpp: line 4: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/modularize/ModuleAssistant.cpp: line 5: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/modularize/ModuleAssistant.cpp: line 6: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/modularize/ModuleAssistant.cpp: line 7: //===----------------------------------------------------------------------===//: No such file or directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/modularize/ModuleAssistant.cpp: line 8: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/modularize/ModuleAssistant.cpp: line 9: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/modularize/ModuleAssistant.cpp: line 10: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/modularize/ModuleAssistant.cpp: line 11: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/modularize/ModuleAssistant.cpp: line 12: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/modularize/ModuleAssistant.cpp: line 13: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/modularize/ModuleAssistant.cpp: line 14: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/modularize/ModuleAssistant.cpp: line 15: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/modularize/ModuleAssistant.cpp: line 16: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/modularize/ModuleAssistant.cpp: line 17: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/modularize/ModuleAssistant.cpp: line 18: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/modularize/ModuleAssistant.cpp: line 19: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/modularize/ModuleAssistant.cpp: line 20: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/modularize/ModuleAssistant.cpp: line 21: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/modularize/ModuleAssistant.cpp: line 22: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/modularize/ModuleAssistant.cpp: line 23: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/modularize/ModuleAssistant.cpp: line 24: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/modularize/ModuleAssistant.cpp: line 25: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/modularize/ModuleAssistant.cpp: line 26: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/modularize/ModuleAssistant.cpp: line 27: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/modularize/ModuleAssistant.cpp: line 28: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/modularize/ModuleAssistant.cpp: line 29: //===----------------------------------------------------------------------===//: No such file or directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/modularize/ModuleAssistant.cpp: line 38: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/modularize/ModuleAssistant.cpp: line 40: namespace: command not found
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/modularize/ModuleAssistant.cpp: line 42: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/modularize/ModuleAssistant.cpp: line 44: //: Is a directory
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/modularize/ModuleAssistant.cpp: line 45: class: command not found
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/modularize/ModuleAssistant.cpp: line 46: public:: command not found
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/modularize/ModuleAssistant.cpp: line 47: syntax error near unexpected token `llvm::StringRef'
+/root/sseq/support/llvm-project-llvmorg-19.1.3/clang-tools-extra/modularize/ModuleAssistant.cpp: line 47: `  Module(llvm::StringRef Name, bool Problem);'
